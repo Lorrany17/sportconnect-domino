@@ -65,7 +65,6 @@ export default function AdminPage() {
             onImportTeams={handleImportTeams}
             onDeleteTeam={handleDeleteTeam}
             onGenerateBracket={() => handleGenerateBracket(() => setActiveTab("referee"))}
-            onLoadMockTeams={handleLoadMockTeams}
           />
         )}
 

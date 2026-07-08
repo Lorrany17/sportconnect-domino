@@ -8,7 +8,6 @@ interface TeamRegistrationProps {
   onImportTeams: (importedTeams: Team[]) => void;
   onDeleteTeam: (id: string) => void;
   onGenerateBracket: () => void;
-  onLoadMockTeams: (count: number) => void;
 }
 
 
@@ -18,7 +17,6 @@ export default function TeamRegistration({
   onImportTeams,
   onDeleteTeam,
   onGenerateBracket,
-  onLoadMockTeams,
 }: TeamRegistrationProps) {
   const [teamName, setTeamName] = useState("");
   const [player1, setPlayer1] = useState("");
@@ -241,20 +239,6 @@ export default function TeamRegistration({
             Cadastre as duplas inscritas no torneio de dominó e gere o chaveamento mata-mata automático.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onLoadMockTeams(4)}
-            className="px-4 py-2 text-xs font-bold rounded-lg border border-neutral-200 dark:border-brand-border hover:border-brand-electric bg-neutral-100 dark:bg-neutral-900 text-neutral-500 dark:text-brand-text-muted hover:text-neutral-850 dark:hover:text-white transition-all cursor-pointer"
-          >
-            Mock 4 Duplas
-          </button>
-          <button
-            onClick={() => onLoadMockTeams(8)}
-            className="px-4 py-2 text-xs font-bold rounded-lg border border-neutral-200 dark:border-brand-border hover:border-brand-neon bg-neutral-100 dark:bg-neutral-900 text-neutral-500 dark:text-brand-text-muted hover:text-neutral-850 dark:hover:text-white transition-all cursor-pointer"
-          >
-            Mock 8 Duplas
-          </button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -383,7 +367,7 @@ export default function TeamRegistration({
               <div className="flex flex-col items-center justify-center py-16 border border-dashed border-neutral-300 dark:border-brand-border rounded-xl bg-neutral-50 dark:bg-neutral-900/10">
                 <Users className="h-12 w-12 text-neutral-300 dark:text-neutral-800 mb-3" />
                 <p className="text-neutral-500 dark:text-brand-text-muted text-sm font-semibold">Nenhuma dupla inscrita até o momento.</p>
-                <p className="text-xs text-neutral-455 dark:text-neutral-600 mt-1">Use os botões de mock ou envie um arquivo CSV.</p>
+                <p className="text-xs text-neutral-455 dark:text-neutral-600 mt-1">Cadastre duplas manualmente ou envie um arquivo CSV.</p>
               </div>
             ) : (
               <>

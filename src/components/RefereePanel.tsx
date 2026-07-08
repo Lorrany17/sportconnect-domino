@@ -122,21 +122,21 @@ export default function RefereePanel({
     switch (status) {
       case "LIVE":
         return (
-          <span className="flex items-center gap-1 bg-brand-neon-orange/10 border border-brand-neon-orange/20 text-brand-neon text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full animate-pulse-slow">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand-neon" />
+          <span className="flex items-center gap-1 bg-red-50 border border-red-100 text-red-600 text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full animate-pulse-slow dark:bg-red-900/20 dark:border-red-900/50 dark:text-red-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-600 dark:bg-brand-neon" />
             AO VIVO
           </span>
         );
       case "SCHEDULED":
         return (
-          <span className="flex items-center gap-1 bg-neutral-900 border border-brand-border text-brand-text-muted text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full">
+          <span className="flex items-center gap-1 bg-neutral-100 border border-neutral-200 text-neutral-600 text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-300">
             <Clock className="h-3 w-3" />
             AGENDADA
           </span>
         );
       case "COMPLETED":
         return (
-          <span className="flex items-center gap-1 bg-brand-electric/10 border border-brand-electric/20 text-brand-electric-light text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full">
+          <span className="flex items-center gap-1 bg-amber-50 border border-amber-100 text-amber-700 text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full dark:bg-brand-electric/10 dark:border-brand-electric/20 dark:text-brand-electric-light">
             <Trophy className="h-3 w-3" />
             FINALIZADA
           </span>
@@ -187,18 +187,24 @@ export default function RefereePanel({
                         }}
                         className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                           selectedMatchId === m.id
-                            ? "bg-brand-electric/5 border-brand-electric shadow-lg shadow-brand-electric/5 text-white"
-                            : "bg-neutral-900/60 border-brand-border/40 hover:bg-neutral-900/90 text-brand-text-muted"
+                            ? "bg-blue-600 border-blue-600 text-white dark:bg-brand-electric/5 dark:border-brand-electric dark:shadow-lg dark:shadow-brand-electric/5 dark:text-white"
+                            : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 dark:bg-neutral-900/60 dark:border-brand-border/40 dark:hover:bg-neutral-900/90 dark:text-brand-text-muted"
                         }`}
                       >
-                        <div className="flex justify-between items-center text-[9px] font-bold mb-1">
+                        <div className={`flex justify-between items-center text-[9px] font-bold mb-1 ${
+                          selectedMatchId === m.id ? "text-blue-100 dark:text-neutral-400" : "text-emerald-600 dark:text-brand-text-muted"
+                        }`}>
                           <span>MESA {m.tableNumber} • {m.phase}</span>
-                          <span className="text-brand-neon font-black">
+                          <span className={`font-black ${
+                            selectedMatchId === m.id ? "text-white" : "text-emerald-700 dark:text-brand-neon"
+                          }`}>
                             {m.scoreA}x{m.scoreB}
                             {isBestOf3 && ` (${m.setsA || 0}x${m.setsB || 0} S)`}
                           </span>
                         </div>
-                        <div className="text-xs font-bold truncate text-white">
+                        <div className={`text-xs font-bold truncate ${
+                          selectedMatchId === m.id ? "text-white" : "text-emerald-950 dark:text-white"
+                        }`}>
                           {m.teamA.name} vs {m.teamB.name}
                         </div>
                       </button>
@@ -223,19 +229,35 @@ export default function RefereePanel({
                           }}
                           className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                             selectedMatchId === m.id
-                              ? "bg-neutral-900 border-neutral-700 text-white"
-                              : "bg-neutral-950/20 border-brand-border/40 hover:bg-neutral-900/20 text-brand-text-muted"
+                              ? "bg-blue-600 border-blue-600 text-white dark:bg-neutral-900 dark:border-neutral-700 dark:text-white"
+                              : isMatchReady
+                              ? "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-350 dark:hover:bg-neutral-700/50"
+                              : "bg-neutral-50 border-dashed border-neutral-200 text-neutral-400 cursor-not-allowed dark:bg-neutral-950/20 dark:border-brand-border/40 dark:border-dashed dark:text-neutral-600"
                           }`}
                         >
-                          <div className="flex justify-between items-center text-[9px] font-bold text-neutral-600 mb-1">
+                          <div className={`flex justify-between items-center text-[9px] font-bold mb-1 ${
+                            selectedMatchId === m.id ? "text-blue-100 dark:text-neutral-400" : "text-neutral-500 dark:text-neutral-500"
+                          }`}>
                             <span>MESA {m.tableNumber}</span>
                             <span>AGENDADA</span>
                           </div>
-                          <div className={`text-xs font-semibold truncate flex items-center gap-1.5 ${isMatchReady ? "text-white font-bold" : "text-neutral-500 opacity-60"}`}>
+                          <div className={`text-xs font-semibold truncate flex items-center gap-1.5 ${
+                            selectedMatchId === m.id
+                              ? "text-white font-bold"
+                              : isMatchReady
+                              ? "text-neutral-900 dark:text-neutral-200 font-bold"
+                              : "text-neutral-400 dark:text-neutral-500"
+                          }`}>
                             {!isMatchReady && <Lock className="h-3 w-3 shrink-0" />}
                             <span>{m.teamA.name}</span>
                           </div>
-                          <div className={`text-xs font-semibold truncate flex items-center gap-1.5 ${isMatchReady ? "text-white font-bold" : "text-neutral-500 opacity-60"}`}>
+                          <div className={`text-xs font-semibold truncate flex items-center gap-1.5 ${
+                            selectedMatchId === m.id
+                              ? "text-white font-bold"
+                              : isMatchReady
+                              ? "text-neutral-900 dark:text-neutral-200 font-bold"
+                              : "text-neutral-400 dark:text-neutral-500"
+                          }`}>
                             {!isMatchReady && <Lock className="h-3 w-3 shrink-0" />}
                             <span>{m.teamB.name}</span>
                           </div>
@@ -260,16 +282,24 @@ export default function RefereePanel({
                         }}
                         className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                           selectedMatchId === m.id
-                            ? "bg-neutral-900 border-neutral-700 text-white"
-                            : "bg-neutral-950/20 border-brand-border/40 hover:bg-neutral-900/20 text-brand-text-muted"
+                            ? "bg-blue-600 border-blue-600 text-white dark:bg-neutral-900 dark:border-neutral-700 dark:text-white"
+                            : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-700/50"
                         }`}
                       >
-                        <div className="flex justify-between items-center text-[9px] font-bold text-neutral-600 mb-1">
+                        <div className={`flex justify-between items-center text-[9px] font-bold mb-1 ${
+                          selectedMatchId === m.id ? "text-blue-100 dark:text-neutral-450" : "text-neutral-500"
+                        }`}>
                           <span>MESA {m.tableNumber}</span>
-                          <span className="text-brand-electric-light font-bold">FIM</span>
+                          <span className={`font-bold ${
+                            selectedMatchId === m.id ? "text-white" : "text-brand-electric-light"
+                          }`}>FIM</span>
                         </div>
-                        <div className="text-xs font-semibold truncate">{m.teamA.name}</div>
-                        <div className="text-xs font-semibold truncate">{m.teamB.name}</div>
+                        <div className={`text-xs font-semibold truncate ${
+                          selectedMatchId === m.id ? "text-white" : "text-neutral-800 dark:text-neutral-300"
+                        }`}>{m.teamA.name}</div>
+                        <div className={`text-xs font-semibold truncate ${
+                          selectedMatchId === m.id ? "text-white" : "text-neutral-800 dark:text-neutral-300"
+                        }`}>{m.teamB.name}</div>
                       </button>
                     ))}
                   </div>
@@ -302,7 +332,7 @@ export default function RefereePanel({
                   </h2>
                 </div>
                 <div className="flex items-center gap-4 flex-wrap">
-                  <div className="flex items-center gap-2 border border-brand-border bg-neutral-950 px-3 py-1.5 rounded-xl text-xs font-bold text-neutral-400">
+                  <div className="flex items-center gap-2 border border-blue-100 bg-blue-50 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/50">
                     <span>🎯 Regra: Vence quem atingir 4 pontos (Quadra)</span>
                   </div>
                   {getStatusBadge(selectedMatch.status)}
