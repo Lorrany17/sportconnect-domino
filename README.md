@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏆 Documentação Oficial do Projeto: SportConnect (Módulo Torneio de Dominó)
 
-## Getting Started
+## 1. Visão Geral do Sistema
 
-First, run the development server:
+O **SportConnect** é uma plataforma de gestão esportiva desenvolvida para automatizar e profissionalizar a organização de torneios de dominó. O sistema elimina o uso de papel, oferecendo uma Súmula Digital para o mesário (árbitro) e um painel de acompanhamento em tempo real (Chaveamento) para a torcida.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+O sistema foi arquitetado dividindo as rotas entre o acesso público (visualização de chaves e resultados) e um painel administrativo protegido por PIN para o controle operacional do evento.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 2. Stack Tecnológica e Arquitetura
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+A plataforma foi construída utilizando tecnologias modernas de desenvolvimento web, garantindo alta performance e escalabilidade:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+* **Front-end:** Next.js (React) com renderização híbrida.
+* **Estilização:** Tailwind CSS, incluindo suporte nativo e alternância manual de temas (Light/Dark Mode).
+* **Banco de Dados (BaaS):** Supabase (PostgreSQL) para armazenamento de dados relacionais e em tempo real.
+* **Hospedagem & Deploy:** Vercel, com integração contínua (CI/CD) via GitHub.
+* **Gerenciamento de Estado:** React Hooks e passagem de estado dinâmico para renderização dos chaveamentos.
 
-## Learn More
+## 3. Regras de Negócio Implementadas
 
-To learn more about Next.js, take a look at the following resources:
+O sistema foi moldado para refletir o regulamento oficial do torneio, traduzindo regras do mundo real para lógica de código:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+* **Pontuação Base:** Vitórias simples valem 1 ponto; vitórias batendo nas duas pontas ("lá e lô") valem 2 pontos.
+* **Regra da Quadra:** A partida regular é encerrada automaticamente quando uma dupla atinge a marca de 4 pontos.
+* **Modo Semifinal (Melhor de 3):** O sistema identifica automaticamente partidas de fase avançada e altera a lógica para "Sets". O placar é zerado a cada quadra alcançada, e a partida só encerra quando uma equipe vence 2 sets.
+* **Trancamento / Fechamento de Mesa:** Implementação de botão de "Rodada Valendo o Dobro", que multiplica a pontuação (2x ou 4x) na rodada seguinte a um fechamento de mesa.
+* **Feature Flag de Eliminatória:** O formato do campeonato é controlado por uma variável de ambiente, permitindo alternar facilmente entre Eliminatória Simples (Mata-mata) ou Eliminatória Dupla (com Chave de Repescagem) sem perda de código.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 4. Estrutura de Módulos
 
-## Deploy on Vercel
+### 👁️ Visão Pública (Torcida)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+* **Árvore de Confrontos:** Visualização gráfica e auto-ajustável dos jogos agendados, em andamento e finalizados.
+* **Painel de Jogos ao Vivo (Carrossel):** Partidas com status "LIVE" entram em destaque no topo da tela, permitindo rolagem horizontal em dispositivos móveis.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### ⚙️ Painel de Administração (Protegido por PIN)
+
+* **Módulo de Gestão de Duplas:** Inserção manual de equipes e estruturação do banco de dados inicial.
+* **Área do Árbitro (Súmula Digital):** Painel focado em usabilidade, com destaque claro da partida ativa. Contabiliza pontos, desfaz ações e calcula automaticamente o encerramento das partidas e a progressão das duplas vencedoras para a próxima fase do chaveamento.
+
