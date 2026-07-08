@@ -93,8 +93,8 @@ body {
 }
 
 .dark .glass-panel {
-  background: rgba(20, 20, 23, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #1c1c1c !important;
+  border: 1px solid #262626 !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: none;
@@ -108,8 +108,8 @@ body {
 }
 
 .dark .glass-panel-neon {
-  background: rgba(20, 20, 23, 0.75);
-  border: 1px solid rgba(245, 158, 11, 0.15);
+  background: #1c1c1c !important;
+  border: 1px solid #262626 !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: none;

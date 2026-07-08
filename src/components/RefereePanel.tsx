@@ -187,12 +187,12 @@ export default function RefereePanel({
                         }}
                         className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                           selectedMatchId === m.id
-                            ? "bg-blue-600 border-blue-600 text-white dark:bg-brand-electric/5 dark:border-brand-electric dark:shadow-lg dark:shadow-brand-electric/5 dark:text-white"
-                            : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 dark:bg-neutral-900/60 dark:border-brand-border/40 dark:hover:bg-neutral-900/90 dark:text-brand-text-muted"
+                            ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-600 dark:border-blue-500 dark:text-white"
+                            : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 dark:bg-neutral-900/50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-900/90"
                         }`}
                       >
                         <div className={`flex justify-between items-center text-[9px] font-bold mb-1 ${
-                          selectedMatchId === m.id ? "text-blue-100 dark:text-neutral-400" : "text-emerald-600 dark:text-brand-text-muted"
+                          selectedMatchId === m.id ? "text-blue-100 dark:text-blue-100" : "text-emerald-600 dark:text-brand-text-muted"
                         }`}>
                           <span>MESA {m.tableNumber} • {m.phase}</span>
                           <span className={`font-black ${
@@ -203,7 +203,7 @@ export default function RefereePanel({
                           </span>
                         </div>
                         <div className={`text-xs font-bold truncate ${
-                          selectedMatchId === m.id ? "text-white" : "text-emerald-950 dark:text-white"
+                          selectedMatchId === m.id ? "text-white" : "text-emerald-950 dark:text-neutral-400"
                         }`}>
                           {m.teamA.name} vs {m.teamB.name}
                         </div>
@@ -229,14 +229,14 @@ export default function RefereePanel({
                           }}
                           className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                             selectedMatchId === m.id
-                              ? "bg-blue-600 border-blue-600 text-white dark:bg-neutral-900 dark:border-neutral-700 dark:text-white"
+                              ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-600 dark:border-blue-500 dark:text-white"
                               : isMatchReady
-                              ? "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-350 dark:hover:bg-neutral-700/50"
+                              ? "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:bg-neutral-900/50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/50"
                               : "bg-neutral-50 border-dashed border-neutral-200 text-neutral-400 cursor-not-allowed dark:bg-neutral-950/20 dark:border-brand-border/40 dark:border-dashed dark:text-neutral-600"
                           }`}
                         >
                           <div className={`flex justify-between items-center text-[9px] font-bold mb-1 ${
-                            selectedMatchId === m.id ? "text-blue-100 dark:text-neutral-400" : "text-neutral-500 dark:text-neutral-500"
+                            selectedMatchId === m.id ? "text-blue-100 dark:text-blue-100" : "text-neutral-500 dark:text-neutral-500"
                           }`}>
                             <span>MESA {m.tableNumber}</span>
                             <span>AGENDADA</span>
@@ -245,7 +245,7 @@ export default function RefereePanel({
                             selectedMatchId === m.id
                               ? "text-white font-bold"
                               : isMatchReady
-                              ? "text-neutral-900 dark:text-neutral-200 font-bold"
+                              ? "text-neutral-900 dark:text-neutral-400 font-bold"
                               : "text-neutral-400 dark:text-neutral-500"
                           }`}>
                             {!isMatchReady && <Lock className="h-3 w-3 shrink-0" />}
@@ -255,7 +255,7 @@ export default function RefereePanel({
                             selectedMatchId === m.id
                               ? "text-white font-bold"
                               : isMatchReady
-                              ? "text-neutral-900 dark:text-neutral-200 font-bold"
+                              ? "text-neutral-900 dark:text-neutral-400 font-bold"
                               : "text-neutral-400 dark:text-neutral-500"
                           }`}>
                             {!isMatchReady && <Lock className="h-3 w-3 shrink-0" />}
@@ -282,12 +282,12 @@ export default function RefereePanel({
                         }}
                         className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                           selectedMatchId === m.id
-                            ? "bg-blue-600 border-blue-600 text-white dark:bg-neutral-900 dark:border-neutral-700 dark:text-white"
-                            : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-700/50"
+                            ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-600 dark:border-blue-500 dark:text-white"
+                            : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:bg-neutral-900/50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/50"
                         }`}
                       >
                         <div className={`flex justify-between items-center text-[9px] font-bold mb-1 ${
-                          selectedMatchId === m.id ? "text-blue-100 dark:text-neutral-450" : "text-neutral-500"
+                          selectedMatchId === m.id ? "text-blue-100 dark:text-blue-100" : "text-neutral-500"
                         }`}>
                           <span>MESA {m.tableNumber}</span>
                           <span className={`font-bold ${
@@ -295,10 +295,10 @@ export default function RefereePanel({
                           }`}>FIM</span>
                         </div>
                         <div className={`text-xs font-semibold truncate ${
-                          selectedMatchId === m.id ? "text-white" : "text-neutral-800 dark:text-neutral-300"
+                          selectedMatchId === m.id ? "text-white" : "text-neutral-800 dark:text-neutral-400"
                         }`}>{m.teamA.name}</div>
                         <div className={`text-xs font-semibold truncate ${
-                          selectedMatchId === m.id ? "text-white" : "text-neutral-800 dark:text-neutral-300"
+                          selectedMatchId === m.id ? "text-white" : "text-neutral-800 dark:text-neutral-400"
                         }`}>{m.teamB.name}</div>
                       </button>
                     ))}

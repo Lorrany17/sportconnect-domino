@@ -35,7 +35,7 @@ export default function Navbar({
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-brand-border glass-panel">
+    <header className="w-full py-3 border-b sticky top-0 z-40 bg-white dark:bg-[#0a0a0a] dark:border-neutral-800">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           {/* Logo Brand */}

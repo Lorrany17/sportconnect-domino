@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning className={`${montserrat.variable} ${outfit.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col dark:bg-[#0a0a0a]">
         <ThemeProvider>
           <TournamentProvider>
             {children}

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Match, Team } from "@/types";
 import { Trophy, Activity, Pencil, X, Settings, ClipboardCheck, CheckCircle } from "lucide-react";
+import { TOURNAMENT_TYPE } from "@/lib/config";
 interface TournamentBracketProps {
   matches: Match[];
   teams: Team[];
@@ -116,7 +117,9 @@ export default function TournamentBracket({
             Chaveamento e <span className="text-gradient-neon">Tempo Real</span>
           </h1>
           <p className="text-brand-text-muted text-sm mt-1">
-            Acompanhe o andamento das chaves de Vencedores e Repescagem em tempo real.
+            {TOURNAMENT_TYPE === "DOUBLE_ELIMINATION"
+              ? "Acompanhe o andamento das chaves de Vencedores e Repescagem em tempo real."
+              : "Acompanhe o andamento das chaves de Vencedores em tempo real."}
           </p>
         </div>
 
@@ -370,159 +373,161 @@ export default function TournamentBracket({
       </div>
 
       {/* Losers Bracket (Repescagem) */}
-      <div className="glass-panel rounded-2xl p-6 border border-brand-border/60 overflow-x-auto">
-        <h2 className="text-sm font-black flex items-center gap-2 mb-6 border-b border-brand-border/40 pb-3">
-          <Activity className="h-4 w-4 text-brand-electric-light animate-pulse-slow" />
-          <span className="text-gradient-electric uppercase tracking-wider">Chave de Repescagem (Perdedores)</span>
-        </h2>
+      {TOURNAMENT_TYPE === "DOUBLE_ELIMINATION" && (
+        <div className="glass-panel rounded-2xl p-6 border border-brand-border/60 overflow-x-auto">
+          <h2 className="text-sm font-black flex items-center gap-2 mb-6 border-b border-brand-border/40 pb-3">
+            <Activity className="h-4 w-4 text-brand-electric-light animate-pulse-slow" />
+            <span className="text-gradient-electric uppercase tracking-wider">Chave de Repescagem (Perdedores)</span>
+          </h2>
 
-        {!hasMatches ? (
-          <div className="text-center py-12 text-brand-text-muted">
-            <Activity className="h-12 w-12 text-neutral-800 mx-auto mb-3" />
-            <p className="text-sm font-semibold">Repescagem inativa.</p>
-            <p className="text-xs text-neutral-600 mt-1">Inscreva as duplas e inicie o campeonato.</p>
-          </div>
-        ) : (
-          <div className="flex gap-8 md:gap-16 min-w-[700px] justify-start py-4 select-none min-h-[300px] items-stretch">
-            {/* Repescagem Column 1 */}
-            {hasQF && (
+          {!hasMatches ? (
+            <div className="text-center py-12 text-brand-text-muted">
+              <Activity className="h-12 w-12 text-neutral-800 mx-auto mb-3" />
+              <p className="text-sm font-semibold">Repescagem inativa.</p>
+              <p className="text-xs text-neutral-600 mt-1">Inscreva as duplas e inicie o campeonato.</p>
+            </div>
+          ) : (
+            <div className="flex gap-8 md:gap-16 min-w-[700px] justify-start py-4 select-none min-h-[300px] items-stretch">
+              {/* Repescagem Column 1 */}
+              {hasQF && (
+                <div className="flex-1 flex flex-col justify-around gap-4 max-w-[280px]">
+                  <div className="text-center border-b border-brand-border/40 pb-2 mb-2">
+                    <span className="font-display text-[10px] font-black uppercase tracking-wider text-neutral-500">
+                      Semifinal Repescagem
+                    </span>
+                  </div>
+                  <div className="flex flex-col justify-around h-full gap-8 relative">
+                    {/* Losers Match 1 */}
+                    <div className="relative rounded-xl p-3.5 border border-brand-border/30 bg-neutral-950/20">
+                      <div className="text-[8px] font-black text-brand-text-muted uppercase tracking-wider mb-2">
+                        Mesa R1
+                      </div>
+                      <div
+                        draggable={editMode}
+                        onDragStart={(e) => handleDragStart(e, "r-sf-1", "A")}
+                        onDragOver={(e) => editMode && e.preventDefault()}
+                        onDrop={(e) => editMode && handleDrop(e, "r-sf-1", "A")}
+                        onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-1", slot: "A" })}
+                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                          }`}
+                      >
+                        <span className="truncate max-w-[140px]" title={getLoserName("qf-1", "Perdedor QF 1")}>
+                          {getLoserName("qf-1", "Perdedor QF 1")}
+                        </span>
+                        <span className="font-display font-black text-sm">0</span>
+                      </div>
+                      <div className="h-[1px] bg-brand-border/40 my-1" />
+                      <div
+                        draggable={editMode}
+                        onDragStart={(e) => handleDragStart(e, "r-sf-1", "B")}
+                        onDragOver={(e) => editMode && e.preventDefault()}
+                        onDrop={(e) => editMode && handleDrop(e, "r-sf-1", "B")}
+                        onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-1", slot: "B" })}
+                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                          }`}
+                      >
+                        <span className="truncate max-w-[140px]" title={getLoserName("qf-2", "Perdedor QF 2")}>
+                          {getLoserName("qf-2", "Perdedor QF 2")}
+                        </span>
+                        <span className="font-display font-black text-sm">0</span>
+                      </div>
+                      {/* Connector line */}
+                      <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
+                      <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[60px] bg-brand-border/40" />
+                    </div>
+
+                    {/* Losers Match 2 */}
+                    <div className="relative rounded-xl p-3.5 border border-brand-border/30 bg-neutral-950/20">
+                      <div className="text-[8px] font-black text-brand-text-muted uppercase tracking-wider mb-2">
+                        Mesa R2
+                      </div>
+                      <div
+                        draggable={editMode}
+                        onDragStart={(e) => handleDragStart(e, "r-sf-2", "A")}
+                        onDragOver={(e) => editMode && e.preventDefault()}
+                        onDrop={(e) => editMode && handleDrop(e, "r-sf-2", "A")}
+                        onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-2", slot: "A" })}
+                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                          }`}
+                      >
+                        <span className="truncate max-w-[140px]" title={getLoserName("qf-3", "Perdedor QF 3")}>
+                          {getLoserName("qf-3", "Perdedor QF 3")}
+                        </span>
+                        <span className="font-display font-black text-sm">0</span>
+                      </div>
+                      <div className="h-[1px] bg-brand-border/40 my-1" />
+                      <div
+                        draggable={editMode}
+                        onDragStart={(e) => handleDragStart(e, "r-sf-2", "B")}
+                        onDragOver={(e) => editMode && e.preventDefault()}
+                        onDrop={(e) => editMode && handleDrop(e, "r-sf-2", "B")}
+                        onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-2", slot: "B" })}
+                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                          }`}
+                      >
+                        <span className="truncate max-w-[140px]" title={getLoserName("qf-4", "Perdedor QF 4")}>
+                          {getLoserName("qf-4", "Perdedor QF 4")}
+                        </span>
+                        <span className="font-display font-black text-sm">0</span>
+                      </div>
+                      {/* Connector line */}
+                      <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
+                      <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[60px] bg-brand-border/40" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Repescagem Column 2 */}
               <div className="flex-1 flex flex-col justify-around gap-4 max-w-[280px]">
                 <div className="text-center border-b border-brand-border/40 pb-2 mb-2">
                   <span className="font-display text-[10px] font-black uppercase tracking-wider text-neutral-500">
-                    Semifinal Repescagem
+                    Final Repescagem (Bronze)
                   </span>
                 </div>
                 <div className="flex flex-col justify-around h-full gap-8 relative">
-                  {/* Losers Match 1 */}
                   <div className="relative rounded-xl p-3.5 border border-brand-border/30 bg-neutral-950/20">
                     <div className="text-[8px] font-black text-brand-text-muted uppercase tracking-wider mb-2">
-                      Mesa R1
+                      Mesa R3
                     </div>
                     <div
                       draggable={editMode}
-                      onDragStart={(e) => handleDragStart(e, "r-sf-1", "A")}
+                      onDragStart={(e) => handleDragStart(e, "r-f-1", "A")}
                       onDragOver={(e) => editMode && e.preventDefault()}
-                      onDrop={(e) => editMode && handleDrop(e, "r-sf-1", "A")}
-                      onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-1", slot: "A" })}
+                      onDrop={(e) => editMode && handleDrop(e, "r-f-1", "A")}
+                      onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-f-1", slot: "A" })}
                       className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
                         }`}
                     >
-                      <span className="truncate max-w-[140px]" title={getLoserName("qf-1", "Perdedor QF 1")}>
-                        {getLoserName("qf-1", "Perdedor QF 1")}
+                      <span className="truncate max-w-[140px]" title={hasQF ? "Vencedor Repescagem SF" : getLoserName("sf-1", "Perdedor Semifinal 1")}>
+                        {hasQF ? "Vencedor Repescagem SF" : getLoserName("sf-1", "Perdedor Semifinal 1")}
                       </span>
                       <span className="font-display font-black text-sm">0</span>
                     </div>
                     <div className="h-[1px] bg-brand-border/40 my-1" />
                     <div
                       draggable={editMode}
-                      onDragStart={(e) => handleDragStart(e, "r-sf-1", "B")}
+                      onDragStart={(e) => handleDragStart(e, "r-f-1", "B")}
                       onDragOver={(e) => editMode && e.preventDefault()}
-                      onDrop={(e) => editMode && handleDrop(e, "r-sf-1", "B")}
-                      onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-1", slot: "B" })}
+                      onDrop={(e) => editMode && handleDrop(e, "r-f-1", "B")}
+                      onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-f-1", slot: "B" })}
                       className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
                         }`}
                     >
-                      <span className="truncate max-w-[140px]" title={getLoserName("qf-2", "Perdedor QF 2")}>
-                        {getLoserName("qf-2", "Perdedor QF 2")}
+                      <span className="truncate max-w-[140px]" title={hasQF ? getLoserName("sf-1", "Perdedor Semifinal 1") : getLoserName("sf-2", "Perdedor Semifinal 2")}>
+                        {hasQF ? getLoserName("sf-1", "Perdedor Semifinal 1") : getLoserName("sf-2", "Perdedor Semifinal 2")}
                       </span>
                       <span className="font-display font-black text-sm">0</span>
                     </div>
-                    {/* Connector line */}
-                    <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
-                    <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[60px] bg-brand-border/40" />
+                    {/* Left connectors */}
+                    <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
                   </div>
-
-                  {/* Losers Match 2 */}
-                  <div className="relative rounded-xl p-3.5 border border-brand-border/30 bg-neutral-950/20">
-                    <div className="text-[8px] font-black text-brand-text-muted uppercase tracking-wider mb-2">
-                      Mesa R2
-                    </div>
-                    <div
-                      draggable={editMode}
-                      onDragStart={(e) => handleDragStart(e, "r-sf-2", "A")}
-                      onDragOver={(e) => editMode && e.preventDefault()}
-                      onDrop={(e) => editMode && handleDrop(e, "r-sf-2", "A")}
-                      onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-2", slot: "A" })}
-                      className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
-                        }`}
-                    >
-                      <span className="truncate max-w-[140px]" title={getLoserName("qf-3", "Perdedor QF 3")}>
-                        {getLoserName("qf-3", "Perdedor QF 3")}
-                      </span>
-                      <span className="font-display font-black text-sm">0</span>
-                    </div>
-                    <div className="h-[1px] bg-brand-border/40 my-1" />
-                    <div
-                      draggable={editMode}
-                      onDragStart={(e) => handleDragStart(e, "r-sf-2", "B")}
-                      onDragOver={(e) => editMode && e.preventDefault()}
-                      onDrop={(e) => editMode && handleDrop(e, "r-sf-2", "B")}
-                      onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-2", slot: "B" })}
-                      className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
-                        }`}
-                    >
-                      <span className="truncate max-w-[140px]" title={getLoserName("qf-4", "Perdedor QF 4")}>
-                        {getLoserName("qf-4", "Perdedor QF 4")}
-                      </span>
-                      <span className="font-display font-black text-sm">0</span>
-                    </div>
-                    {/* Connector line */}
-                    <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
-                    <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[60px] bg-brand-border/40" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Repescagem Column 2 */}
-            <div className="flex-1 flex flex-col justify-around gap-4 max-w-[280px]">
-              <div className="text-center border-b border-brand-border/40 pb-2 mb-2">
-                <span className="font-display text-[10px] font-black uppercase tracking-wider text-neutral-500">
-                  Final Repescagem (Bronze)
-                </span>
-              </div>
-              <div className="flex flex-col justify-around h-full gap-8 relative">
-                <div className="relative rounded-xl p-3.5 border border-brand-border/30 bg-neutral-950/20">
-                  <div className="text-[8px] font-black text-brand-text-muted uppercase tracking-wider mb-2">
-                    Mesa R3
-                  </div>
-                  <div
-                    draggable={editMode}
-                    onDragStart={(e) => handleDragStart(e, "r-f-1", "A")}
-                    onDragOver={(e) => editMode && e.preventDefault()}
-                    onDrop={(e) => editMode && handleDrop(e, "r-f-1", "A")}
-                    onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-f-1", slot: "A" })}
-                    className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
-                      }`}
-                  >
-                    <span className="truncate max-w-[140px]" title={hasQF ? "Vencedor Repescagem SF" : getLoserName("sf-1", "Perdedor Semifinal 1")}>
-                      {hasQF ? "Vencedor Repescagem SF" : getLoserName("sf-1", "Perdedor Semifinal 1")}
-                    </span>
-                    <span className="font-display font-black text-sm">0</span>
-                  </div>
-                  <div className="h-[1px] bg-brand-border/40 my-1" />
-                  <div
-                    draggable={editMode}
-                    onDragStart={(e) => handleDragStart(e, "r-f-1", "B")}
-                    onDragOver={(e) => editMode && e.preventDefault()}
-                    onDrop={(e) => editMode && handleDrop(e, "r-f-1", "B")}
-                    onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-f-1", slot: "B" })}
-                    className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
-                      }`}
-                  >
-                    <span className="truncate max-w-[140px]" title={hasQF ? getLoserName("sf-1", "Perdedor Semifinal 1") : getLoserName("sf-2", "Perdedor Semifinal 2")}>
-                      {hasQF ? getLoserName("sf-1", "Perdedor Semifinal 1") : getLoserName("sf-2", "Perdedor Semifinal 2")}
-                    </span>
-                    <span className="font-display font-black text-sm">0</span>
-                  </div>
-                  {/* Left connectors */}
-                  <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Histórico de Resultados */}
       <div className="glass-panel rounded-2xl p-6 border border-brand-border/60">
