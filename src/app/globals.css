@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-bg: #0A0A0C;
+  --color-brand-card: rgba(20, 20, 23, 0.85);
+  --color-brand-card-hover: rgba(28, 28, 34, 0.95);
+  --color-brand-electric: #2563EB;
+  --color-brand-electric-hover: #1d4ed8;
+  --color-brand-electric-light: #3B82F6;
+  --color-brand-neon: #F59E0B;
+  --color-brand-neon-hover: #d97706;
+  --color-brand-neon-orange: #EA580C;
+  --color-brand-border: #262626;
+  --color-brand-border-focus: #404040;
+  --color-brand-text: #F3F4F6;
+  --color-brand-text-muted: #9CA3AF;
+  
+  --font-display: 'Montserrat', 'Inter', sans-serif;
+  --font-sport: 'Outfit', 'Inter', sans-serif;
+
+  --animate-pulse-slow: pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-glow: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    text-shadow: 0 0 4px rgba(245, 158, 11, 0.2), 0 0 10px rgba(245, 158, 11, 0.4);
+  }
+  to {
+    text-shadow: 0 0 8px rgba(245, 158, 11, 0.5), 0 0 20px rgba(245, 158, 11, 0.8);
+  }
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  background-color: #f3f4f6; /* bg-neutral-100 */
+  background-image: radial-gradient(circle at 50% -20%, rgba(37, 99, 235, 0.08) 0%, rgba(0, 0, 0, 0) 60%);
+  background-attachment: fixed;
+  color: #171717; /* text-neutral-900 */
+  font-family: var(--font-sport);
+  overflow-x: hidden;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.dark body {
+  background-color: #0a0a0a; /* dark:bg-neutral-950 */
+  background-image: radial-gradient(circle at 50% -20%, rgba(37, 99, 235, 0.15) 0%, rgba(0, 0, 0, 0) 60%),
+                    radial-gradient(circle at 0% 100%, rgba(245, 158, 11, 0.05) 0%, rgba(0, 0, 0, 0) 40%);
+  color: #fafafa; /* dark:text-neutral-50 */
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #0a0a0c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e5e5e5;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #262626;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d4d4d4;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #404040;
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb; /* border-neutral-200 */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05); /* shadow-sm */
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.dark .glass-panel {
+  background: rgba(20, 20, 23, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: none;
+}
+
+.glass-panel-neon {
+  background: #ffffff;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05); /* shadow-sm */
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.dark .glass-panel-neon {
+  background: rgba(20, 20, 23, 0.75);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: none;
+}
+
+.text-gradient-electric {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-neon {
+  background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
