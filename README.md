@@ -34,7 +34,10 @@ O sistema foi moldado para refletir o regulamento oficial do torneio, traduzindo
 * **Painel de Jogos ao Vivo (Carrossel):** Partidas com status "LIVE" entram em destaque no topo da tela, permitindo rolagem horizontal em dispositivos móveis.
 
 ### ⚙️ Painel de Administração (Protegido por PIN)
+* **Módulo de Gestão de Duplas: Cadastro de equipes flexível, permitindo duas modalidades:**
 
-* **Módulo de Gestão de Duplas:** Inserção manual de equipes e estruturação do banco de dados inicial.
+* **Importação via CSV:** Upload de planilha (contendo as colunas de protocolo, jogador 1, jogador 2 e status) para o cadastro em lote, estruturando o banco de dados inicial em poucos segundos.
+
+* **Inserção Manual:** Formulário rápido para adicionar duplas individualmente ou corrigir inscrições de última hora.
+
 * **Área do Árbitro (Súmula Digital):** Painel focado em usabilidade, com destaque claro da partida ativa. Contabiliza pontos, desfaz ações e calcula automaticamente o encerramento das partidas e a progressão das duplas vencedoras para a próxima fase do chaveamento.
-
