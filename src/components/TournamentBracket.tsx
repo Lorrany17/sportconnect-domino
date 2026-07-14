@@ -116,10 +116,10 @@ export default function TournamentBracket({
           <h1 className="font-display text-3xl font-black tracking-tight uppercase">
             Chaveamento e <span className="text-gradient-neon">Tempo Real</span>
           </h1>
-          <p className="text-brand-text-muted text-sm mt-1">
+          <p className="text-stone-500 dark:text-brand-text-muted text-sm mt-1">
             {TOURNAMENT_TYPE === "DOUBLE_ELIMINATION"
-              ? "Acompanhe o andamento das chaves de Vencedores e Repescagem em tempo real."
-              : "Acompanhe o andamento das chaves de Vencedores em tempo real."}
+               ? "Acompanhe o andamento das chaves de Vencedores e Repescagem em tempo real."
+               : "Acompanhe o andamento das chaves de Vencedores em tempo real."}
           </p>
         </div>
 
@@ -127,9 +127,9 @@ export default function TournamentBracket({
         {hasMatches && isAdmin && (
           <button
             onClick={() => setEditMode(!editMode)}
-            className={`flex items-center gap-2 px-4.5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border ${editMode
-                ? "bg-brand-neon/15 border-brand-neon text-brand-neon shadow-lg shadow-brand-neon/10"
-                : "bg-neutral-900 border-brand-border hover:border-neutral-700 text-brand-text-muted"
+            className={`inline-flex items-center gap-2 px-4 py-2 w-fit self-start md:self-auto rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border ${editMode
+                ? "bg-amber-600/10 border-amber-500/30 text-amber-800 shadow-md shadow-amber-500/5 dark:bg-brand-neon/15 dark:border-brand-neon dark:text-brand-neon dark:shadow-lg dark:shadow-brand-neon/10"
+                : "bg-stone-100 hover:bg-stone-200/60 border-stone-200 text-stone-700 dark:bg-neutral-900 dark:border-brand-border dark:hover:border-neutral-700 dark:text-brand-text-muted"
               }`}
           >
             <Settings className={`h-3.5 w-3.5 ${editMode ? "animate-spin" : ""}`} />
@@ -181,7 +181,7 @@ export default function TournamentBracket({
 
                     <div className="grid grid-cols-7 gap-3 items-center">
                       <div className="col-span-3 text-center md:text-right min-w-0">
-                        <h3 className="text-sm font-black text-white uppercase tracking-wide truncate">
+                        <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-wide truncate">
                           {activeMatch.teamA.name}
                         </h3>
                         {isBestOf3 && (
@@ -201,7 +201,7 @@ export default function TournamentBracket({
                       </div>
 
                       <div className="col-span-3 text-center md:text-left min-w-0">
-                        <h3 className="text-sm font-black text-white uppercase tracking-wide truncate">
+                        <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-wide truncate">
                           {activeMatch.teamB.name}
                         </h3>
                         {isBestOf3 && (
@@ -254,11 +254,11 @@ export default function TournamentBracket({
                       return (
                         <div
                           key={m.id}
-                          className={`relative rounded-xl p-3.5 border transition-all duration-300 ${isLive
-                              ? "bg-white dark:bg-neutral-900/90 border-brand-neon/60 shadow-lg shadow-brand-neon/5 text-neutral-900 dark:text-white"
+                          className={`relative rounded-xl p-3.5 border transition-all duration-300 shadow-sm ${isLive
+                              ? "bg-[#fcfcfa] dark:bg-[#1c1c1c] border-[#d8ccb4] dark:border-neutral-800 text-stone-800 dark:text-white"
                               : isCompleted
-                                ? "bg-neutral-50 dark:bg-neutral-900/40 border-neutral-200 dark:border-brand-border/60 text-neutral-800 dark:text-neutral-350"
-                                : "bg-neutral-100/50 dark:bg-neutral-950/20 border-neutral-200 dark:border-brand-border/30 text-neutral-700 dark:text-neutral-400"
+                                ? "bg-white dark:bg-[#1c1c1c] border-[#d8ccb4]/80 dark:border-neutral-800 text-stone-800/90 dark:text-neutral-350"
+                                : "bg-white/90 dark:bg-[#1c1c1c] border-[#d8ccb4]/60 dark:border-neutral-800 text-stone-800/70 dark:text-neutral-400"
                             }`}
                         >
                           {/* Live Indicator or Edit Pencil */}
@@ -271,16 +271,16 @@ export default function TournamentBracket({
                               <Pencil className="h-3 w-3" />
                             </button>
                           ) : isLive ? (
-                            <span className="absolute -top-2.5 -right-2 px-1.5 py-0.5 rounded bg-brand-neon-orange/20 border border-brand-neon-orange/40 text-brand-neon text-[8px] font-black tracking-widest uppercase animate-pulse">
+                            <span className="absolute -top-2.5 -right-2 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200 dark:bg-brand-neon-orange/20 dark:text-brand-neon dark:border-brand-neon-orange/40 text-[8px] font-black tracking-widest uppercase animate-pulse">
                               AO VIVO
                             </span>
                           ) : null}
 
                           {/* Table tag */}
-                          <div className="text-[8px] font-black text-brand-text-muted uppercase tracking-wider mb-2 flex justify-between">
+                          <div className="text-[8px] font-black text-stone-500 dark:text-brand-text-muted uppercase tracking-wider mb-2 flex justify-between">
                             <span>Mesa {m.tableNumber}</span>
                             {isCompleted && <span className="text-brand-electric-light">FIM</span>}
-                            {!isCompleted && !isLive && <span className="text-neutral-500">AGENDADA</span>}
+                            {!isCompleted && !isLive && <span className="text-stone-400 dark:text-neutral-500">AGENDADA</span>}
                           </div>
 
                           {/* Team A Card row */}
@@ -294,10 +294,10 @@ export default function TournamentBracket({
                                 ? "cursor-grab active:cursor-grabbing hover:bg-brand-electric/10 border border-dashed border-transparent hover:border-brand-electric/30"
                                 : ""
                               } ${isCompleted && m.winnerId === m.teamA.id
-                                ? "bg-brand-electric/15 text-white font-bold"
+                                ? "bg-brand-electric/15 text-stone-800 dark:text-white font-bold"
                                 : isCompleted
-                                  ? "text-neutral-500"
-                                  : "text-neutral-900 dark:text-white"
+                                  ? "text-stone-500 dark:text-neutral-500"
+                                  : "text-stone-800 dark:text-white"
                               }`}
                           >
                             <span className="truncate max-w-[120px]" title={m.teamA.name}>
@@ -307,7 +307,7 @@ export default function TournamentBracket({
                           </div>
 
                           {/* Divider */}
-                          <div className="h-[1px] bg-neutral-200 dark:bg-brand-border/40 my-1" />
+                          <div className="h-[1px] bg-[#d8ccb4] dark:bg-brand-border/40 my-1" />
 
                           {/* Team B Card row */}
                           <div
@@ -320,10 +320,10 @@ export default function TournamentBracket({
                                 ? "cursor-grab active:cursor-grabbing hover:bg-brand-neon-orange/10 border border-dashed border-transparent hover:border-brand-neon-orange/30"
                                 : ""
                               } ${isCompleted && m.winnerId === m.teamB.id
-                                ? "bg-brand-electric/15 text-white font-bold"
+                                ? "bg-brand-electric/15 text-stone-800 dark:text-white font-bold"
                                 : isCompleted
-                                  ? "text-neutral-500"
-                                  : "text-neutral-900 dark:text-white"
+                                  ? "text-stone-500 dark:text-neutral-500"
+                                  : "text-stone-800 dark:text-white"
                               }`}
                           >
                             <span className="truncate max-w-[120px]" title={m.teamB.name}>
@@ -335,31 +335,31 @@ export default function TournamentBracket({
                           {/* Connector lines inside Winners Bracket */}
                           {phase.toLowerCase() === "quartas de final" && (
                             <>
-                              <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
+                              <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
                               {(m.id === "qf-1" || m.id === "qf-3") && (
-                                <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[80px] bg-brand-border/40" />
+                                <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[80px] bg-[#c4b59d] dark:bg-brand-border/40" />
                               )}
                               {(m.id === "qf-2" || m.id === "qf-4") && (
-                                <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[80px] bg-brand-border/40" />
+                                <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[80px] bg-[#c4b59d] dark:bg-brand-border/40" />
                               )}
                             </>
                           )}
 
                           {phase.toLowerCase() === "semifinal" && (
                             <>
-                              <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
-                              <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
+                              <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
+                              <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
                               {m.id.includes("sf-1") && (
-                                <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[140px] bg-brand-border/40" />
+                                <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[140px] bg-[#c4b59d] dark:bg-brand-border/40" />
                               )}
                               {m.id.includes("sf-2") && (
-                                <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[140px] bg-brand-border/40" />
+                                <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[140px] bg-[#c4b59d] dark:bg-brand-border/40" />
                               )}
                             </>
                           )}
 
                           {phase.toLowerCase() === "final" && (
-                            <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
+                            <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
                           )}
                         </div>
                       );
@@ -398,8 +398,8 @@ export default function TournamentBracket({
                   </div>
                   <div className="flex flex-col justify-around h-full gap-8 relative">
                     {/* Losers Match 1 */}
-                    <div className="relative rounded-xl p-3.5 border border-brand-border/30 bg-neutral-950/20">
-                      <div className="text-[8px] font-black text-brand-text-muted uppercase tracking-wider mb-2">
+                    <div className="relative rounded-xl p-3.5 border border-[#d8ccb4] dark:border-neutral-800 bg-white dark:bg-[#1c1c1c] shadow-sm">
+                      <div className="text-[8px] font-black text-stone-500 dark:text-brand-text-muted uppercase tracking-wider mb-2">
                         Mesa R1
                       </div>
                       <div
@@ -408,7 +408,7 @@ export default function TournamentBracket({
                         onDragOver={(e) => editMode && e.preventDefault()}
                         onDrop={(e) => editMode && handleDrop(e, "r-sf-1", "A")}
                         onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-1", slot: "A" })}
-                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-stone-600 dark:text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-stone-100 dark:hover:bg-neutral-800" : ""
                           }`}
                       >
                         <span className="truncate max-w-[140px]" title={getLoserName("qf-1", "Perdedor QF 1")}>
@@ -416,14 +416,14 @@ export default function TournamentBracket({
                         </span>
                         <span className="font-display font-black text-sm">0</span>
                       </div>
-                      <div className="h-[1px] bg-brand-border/40 my-1" />
+                      <div className="h-[1px] bg-[#d8ccb4] dark:bg-brand-border/40 my-1" />
                       <div
                         draggable={editMode}
                         onDragStart={(e) => handleDragStart(e, "r-sf-1", "B")}
                         onDragOver={(e) => editMode && e.preventDefault()}
                         onDrop={(e) => editMode && handleDrop(e, "r-sf-1", "B")}
                         onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-1", slot: "B" })}
-                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-stone-600 dark:text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-stone-100 dark:hover:bg-neutral-800" : ""
                           }`}
                       >
                         <span className="truncate max-w-[140px]" title={getLoserName("qf-2", "Perdedor QF 2")}>
@@ -432,13 +432,13 @@ export default function TournamentBracket({
                         <span className="font-display font-black text-sm">0</span>
                       </div>
                       {/* Connector line */}
-                      <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
-                      <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[60px] bg-brand-border/40" />
+                      <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
+                      <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[60px] bg-[#c4b59d] dark:bg-brand-border/40" />
                     </div>
 
                     {/* Losers Match 2 */}
-                    <div className="relative rounded-xl p-3.5 border border-brand-border/30 bg-neutral-950/20">
-                      <div className="text-[8px] font-black text-brand-text-muted uppercase tracking-wider mb-2">
+                    <div className="relative rounded-xl p-3.5 border border-[#d8ccb4] dark:border-neutral-800 bg-white dark:bg-[#1c1c1c] shadow-sm">
+                      <div className="text-[8px] font-black text-stone-500 dark:text-brand-text-muted uppercase tracking-wider mb-2">
                         Mesa R2
                       </div>
                       <div
@@ -447,7 +447,7 @@ export default function TournamentBracket({
                         onDragOver={(e) => editMode && e.preventDefault()}
                         onDrop={(e) => editMode && handleDrop(e, "r-sf-2", "A")}
                         onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-2", slot: "A" })}
-                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-stone-600 dark:text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-stone-100 dark:hover:bg-neutral-800" : ""
                           }`}
                       >
                         <span className="truncate max-w-[140px]" title={getLoserName("qf-3", "Perdedor QF 3")}>
@@ -455,14 +455,14 @@ export default function TournamentBracket({
                         </span>
                         <span className="font-display font-black text-sm">0</span>
                       </div>
-                      <div className="h-[1px] bg-brand-border/40 my-1" />
+                      <div className="h-[1px] bg-[#d8ccb4] dark:bg-brand-border/40 my-1" />
                       <div
                         draggable={editMode}
                         onDragStart={(e) => handleDragStart(e, "r-sf-2", "B")}
                         onDragOver={(e) => editMode && e.preventDefault()}
                         onDrop={(e) => editMode && handleDrop(e, "r-sf-2", "B")}
                         onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-sf-2", slot: "B" })}
-                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                        className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-stone-600 dark:text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-stone-100 dark:hover:bg-neutral-800" : ""
                           }`}
                       >
                         <span className="truncate max-w-[140px]" title={getLoserName("qf-4", "Perdedor QF 4")}>
@@ -471,8 +471,8 @@ export default function TournamentBracket({
                         <span className="font-display font-black text-sm">0</span>
                       </div>
                       {/* Connector line */}
-                      <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
-                      <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[60px] bg-brand-border/40" />
+                      <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
+                      <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[60px] bg-[#c4b59d] dark:bg-brand-border/40" />
                     </div>
                   </div>
                 </div>
@@ -486,8 +486,8 @@ export default function TournamentBracket({
                   </span>
                 </div>
                 <div className="flex flex-col justify-around h-full gap-8 relative">
-                  <div className="relative rounded-xl p-3.5 border border-brand-border/30 bg-neutral-950/20">
-                    <div className="text-[8px] font-black text-brand-text-muted uppercase tracking-wider mb-2">
+                  <div className="relative rounded-xl p-3.5 border border-[#d8ccb4] dark:border-neutral-800 bg-white dark:bg-[#1c1c1c] shadow-sm">
+                    <div className="text-[8px] font-black text-stone-500 dark:text-brand-text-muted uppercase tracking-wider mb-2">
                       Mesa R3
                     </div>
                     <div
@@ -496,7 +496,7 @@ export default function TournamentBracket({
                       onDragOver={(e) => editMode && e.preventDefault()}
                       onDrop={(e) => editMode && handleDrop(e, "r-f-1", "A")}
                       onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-f-1", slot: "A" })}
-                      className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                      className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-stone-600 dark:text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-stone-100 dark:hover:bg-neutral-800" : ""
                         }`}
                     >
                       <span className="truncate max-w-[140px]" title={hasQF ? "Vencedor Repescagem SF" : getLoserName("sf-1", "Perdedor Semifinal 1")}>
@@ -504,14 +504,14 @@ export default function TournamentBracket({
                       </span>
                       <span className="font-display font-black text-sm">0</span>
                     </div>
-                    <div className="h-[1px] bg-brand-border/40 my-1" />
+                    <div className="h-[1px] bg-[#d8ccb4] dark:bg-brand-border/40 my-1" />
                     <div
                       draggable={editMode}
                       onDragStart={(e) => handleDragStart(e, "r-f-1", "B")}
                       onDragOver={(e) => editMode && e.preventDefault()}
                       onDrop={(e) => editMode && handleDrop(e, "r-f-1", "B")}
                       onClick={() => editMode && setActiveDropdownSlot({ matchId: "r-f-1", slot: "B" })}
-                      className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-neutral-800" : ""
+                      className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg text-stone-600 dark:text-neutral-400 ${editMode ? "cursor-grab active:cursor-grabbing hover:bg-stone-100 dark:hover:bg-neutral-800" : ""
                         }`}
                     >
                       <span className="truncate max-w-[140px]" title={hasQF ? getLoserName("sf-1", "Perdedor Semifinal 1") : getLoserName("sf-2", "Perdedor Semifinal 2")}>
@@ -520,7 +520,7 @@ export default function TournamentBracket({
                       <span className="font-display font-black text-sm">0</span>
                     </div>
                     {/* Left connectors */}
-                    <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-brand-border/40 -translate-y-1/2" />
+                    <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
                   </div>
                 </div>
               </div>
@@ -581,20 +581,20 @@ export default function TournamentBracket({
                 return (
                   <div
                     key={m.id}
-                    className="glass-panel border border-brand-border/40 hover:border-neutral-800 rounded-xl p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all"
+                    className="bg-white dark:bg-[#1c1c1c] border border-[#d8ccb4] dark:border-neutral-800 hover:border-[#c4b59d] dark:hover:border-neutral-700 rounded-xl p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all shadow-sm"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-2">
+                      <div className="text-[10px] font-bold text-stone-500 dark:text-neutral-500 uppercase tracking-wider flex items-center gap-2">
                         <span>{m.phase} - Mesa {m.tableNumber}</span>
                         {isBestOf3 && !isWO && (
-                          <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest bg-neutral-900 px-1.5 py-0.5 rounded border border-brand-border/20">
+                          <span className="text-[9px] text-white dark:text-neutral-400 font-bold uppercase tracking-widest bg-stone-800 dark:bg-neutral-900 px-1.5 py-0.5 rounded border border-[#d8ccb4] dark:border-brand-border/20">
                             Sets
                           </span>
                         )}
                       </div>
                       <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6 mt-1.5">
                         {/* Team A Row */}
-                        <div className={`flex items-center gap-1.5 text-xs truncate max-w-[240px] ${aWins ? "font-bold text-white" : "text-neutral-400 opacity-70"}`}>
+                        <div className={`flex items-center gap-1.5 text-xs truncate max-w-[240px] ${aWins ? "font-bold text-stone-800 dark:text-white" : "text-stone-500 dark:text-neutral-400 opacity-70"}`}>
                           <span>{m.teamA.name}</span>
                           {isAWO && (
                             <span className="bg-red-500/10 border border-red-500/30 text-red-500 text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded animate-pulse">
@@ -602,14 +602,14 @@ export default function TournamentBracket({
                             </span>
                           )}
                           {!isWO && (
-                            <span className="font-display font-black ml-1 text-sm">{dispScoreA}</span>
+                            <span className="font-display font-black ml-1 text-sm text-stone-800 dark:text-white">{dispScoreA}</span>
                           )}
                         </div>
 
-                        <span className="text-neutral-600 text-[10px] font-black uppercase tracking-widest hidden md:inline">vs</span>
+                        <span className="text-stone-500 dark:text-neutral-600 text-[10px] font-black uppercase tracking-widest hidden md:inline">vs</span>
 
                         {/* Team B Row */}
-                        <div className={`flex items-center gap-1.5 text-xs truncate max-w-[240px] ${bWins ? "font-bold text-white" : "text-neutral-400 opacity-70"}`}>
+                        <div className={`flex items-center gap-1.5 text-xs truncate max-w-[240px] ${bWins ? "font-bold text-stone-800 dark:text-white" : "text-stone-500 dark:text-neutral-400 opacity-70"}`}>
                           <span>{m.teamB.name}</span>
                           {isBWO && (
                             <span className="bg-red-500/10 border border-red-500/30 text-red-500 text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded animate-pulse">
@@ -617,7 +617,7 @@ export default function TournamentBracket({
                             </span>
                           )}
                           {!isWO && (
-                            <span className="font-display font-black ml-1 text-sm">{dispScoreB}</span>
+                            <span className="font-display font-black ml-1 text-sm text-stone-800 dark:text-white">{dispScoreB}</span>
                           )}
                         </div>
                       </div>
@@ -640,7 +640,7 @@ export default function TournamentBracket({
           <div className="glass-panel border border-brand-border/60 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-scaleUp">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-5 border-b border-brand-border/40 bg-neutral-950/40">
-              <h3 className="font-display font-black text-white uppercase tracking-wider text-sm flex items-center gap-2">
+              <h3 className="font-display font-black text-stone-800 dark:text-white uppercase tracking-wider text-sm flex items-center gap-2">
                 <Settings className="h-4 w-4 text-brand-electric-light animate-spin-slow" />
                 <span>Editar Confronto - Mesa {editingMatch.tableNumber}</span>
               </h3>
@@ -666,7 +666,7 @@ export default function TournamentBracket({
                 <select
                   value={editTeamAId}
                   onChange={(e) => setEditTeamAId(e.target.value)}
-                  className="w-full bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-brand-border text-xs rounded-xl p-2.5 outline-none focus:border-brand-electric text-neutral-900 dark:text-white cursor-pointer"
+                  className="w-full bg-[#f2ece0] dark:bg-neutral-950 border border-[#d8ccb4] dark:border-brand-border text-xs rounded-xl p-2.5 outline-none focus:border-brand-electric text-[#3b342e] dark:text-white cursor-pointer"
                 >
                   {getTeamOptions(editingMatch.teamA).map((t) => (
                     <option key={t.id} value={t.id}>
@@ -680,7 +680,7 @@ export default function TournamentBracket({
                     min={0}
                     value={editScoreA}
                     onChange={(e) => setEditScoreA(Math.max(0, Number(e.target.value)))}
-                    className="w-20 bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-brand-border text-xs rounded-xl p-2 outline-none focus:border-brand-electric text-center text-neutral-900 dark:text-white font-bold"
+                    className="w-20 bg-[#f2ece0] dark:bg-neutral-950 border border-[#d8ccb4] dark:border-brand-border text-xs rounded-xl p-2 outline-none focus:border-brand-electric text-center text-[#3b342e] dark:text-white font-bold"
                   />
                   <span className="text-[10px] text-brand-text-muted font-bold uppercase tracking-wider">Pontos parciais</span>
                 </div>
@@ -694,7 +694,7 @@ export default function TournamentBracket({
                 <select
                   value={editTeamBId}
                   onChange={(e) => setEditTeamBId(e.target.value)}
-                  className="w-full bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-brand-border text-xs rounded-xl p-2.5 outline-none focus:border-brand-electric text-neutral-900 dark:text-white cursor-pointer"
+                  className="w-full bg-[#f2ece0] dark:bg-neutral-950 border border-[#d8ccb4] dark:border-brand-border text-xs rounded-xl p-2.5 outline-none focus:border-brand-electric text-[#3b342e] dark:text-white cursor-pointer"
                 >
                   {getTeamOptions(editingMatch.teamB).map((t) => (
                     <option key={t.id} value={t.id}>
@@ -708,7 +708,7 @@ export default function TournamentBracket({
                     min={0}
                     value={editScoreB}
                     onChange={(e) => setEditScoreB(Math.max(0, Number(e.target.value)))}
-                    className="w-20 bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-brand-border text-xs rounded-xl p-2 outline-none focus:border-brand-electric text-center text-neutral-900 dark:text-white font-bold"
+                    className="w-20 bg-[#f2ece0] dark:bg-neutral-950 border border-[#d8ccb4] dark:border-brand-border text-xs rounded-xl p-2 outline-none focus:border-brand-electric text-center text-[#3b342e] dark:text-white font-bold"
                   />
                   <span className="text-[10px] text-brand-text-muted font-bold uppercase tracking-wider">Pontos parciais</span>
                 </div>
@@ -722,7 +722,7 @@ export default function TournamentBracket({
                 <select
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value as Match["status"])}
-                  className="w-full bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-brand-border text-xs rounded-xl p-2.5 outline-none focus:border-brand-electric text-neutral-900 dark:text-white cursor-pointer"
+                  className="w-full bg-[#f2ece0] dark:bg-neutral-950 border border-[#d8ccb4] dark:border-brand-border text-xs rounded-xl p-2.5 outline-none focus:border-brand-electric text-[#3b342e] dark:text-white cursor-pointer"
                 >
                   <option value="SCHEDULED">AGENDADA (Scheduled)</option>
                   <option value="LIVE">AO VIVO (Live)</option>
@@ -732,14 +732,14 @@ export default function TournamentBracket({
 
               {/* Winner Selector for Completed status */}
               {editStatus === "COMPLETED" && (
-                <div className="space-y-1.5 bg-neutral-100 dark:bg-neutral-950/60 p-3.5 rounded-xl border border-neutral-200 dark:border-brand-border">
+                <div className="space-y-1.5 bg-[#f2ece0] dark:bg-neutral-950/60 p-3.5 rounded-xl border border-[#d8ccb4] dark:border-brand-border">
                   <label className="block text-[10px] font-black text-brand-neon uppercase tracking-wider">
                     🏆 Definir Vencedor (Avanço Automático)
                   </label>
                   <select
                     value={editWinnerId}
                     onChange={(e) => setEditWinnerId(e.target.value)}
-                    className="w-full mt-1.5 bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-brand-border text-xs rounded-xl p-2.5 outline-none focus:border-brand-neon text-neutral-900 dark:text-white cursor-pointer"
+                    className="w-full mt-1.5 bg-[#f2ece0] dark:bg-neutral-950 border border-[#d8ccb4] dark:border-brand-border text-xs rounded-xl p-2.5 outline-none focus:border-brand-neon text-[#3b342e] dark:text-white cursor-pointer"
                   >
                     <option value="">Nenhum (A definir)</option>
                     <option value={editTeamAId}>
@@ -757,11 +757,11 @@ export default function TournamentBracket({
             </div>
 
             {/* Modal Footer */}
-             <div className="p-5 border-t border-neutral-200 dark:border-brand-border/40 bg-neutral-100/50 dark:bg-neutral-950/20 flex gap-3">
+             <div className="p-5 border-t border-[#d8ccb4] dark:border-brand-border/40 bg-[#e6ddca]/50 dark:bg-neutral-950/20 flex gap-3">
               <button
                 type="button"
                 onClick={() => setEditingMatch(null)}
-                className="flex-1 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-brand-border hover:border-neutral-300 dark:hover:border-neutral-700 text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[#f2ece0] dark:bg-neutral-950 border border-[#d8ccb4] dark:border-brand-border hover:border-[#d8ccb4]/80 dark:hover:border-neutral-700 text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-neutral-400 hover:text-[#3b342e] dark:hover:text-white transition-all cursor-pointer"
               >
                 Cancelar
               </button>
@@ -783,7 +783,7 @@ export default function TournamentBracket({
           <div className="glass-panel border border-brand-border/60 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-scaleUp">
             {/* Header */}
             <div className="flex justify-between items-center p-4 border-b border-brand-border/40 bg-neutral-950/40">
-              <h4 className="font-display font-black text-white text-xs uppercase tracking-wider">
+              <h4 className="font-display font-black text-stone-800 dark:text-white text-xs uppercase tracking-wider">
                 Editar Slot: Mesa {
                   matches.find((m) => m.id === activeDropdownSlot.matchId)?.tableNumber ||
                   (activeDropdownSlot.matchId.startsWith("r-") ? "Repescagem" : "")

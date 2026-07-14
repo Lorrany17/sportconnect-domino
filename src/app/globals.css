@@ -37,10 +37,10 @@
 }
 
 body {
-  background-color: #f3f4f6; /* bg-neutral-100 */
+  background-color: #f2ece0; /* bg-[#f2ece0] (canvas) */
   background-image: radial-gradient(circle at 50% -20%, rgba(37, 99, 235, 0.08) 0%, rgba(0, 0, 0, 0) 60%);
   background-attachment: fixed;
-  color: #171717; /* text-neutral-900 */
+  color: #3b342e; /* text-[#3b342e] (comfortable chumbo/marrom) */
   font-family: var(--font-sport);
   overflow-x: hidden;
   transition: background-color 0.3s, color 0.3s;
@@ -60,7 +60,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f3f4f6;
+  background: #f2ece0;
 }
 
 .dark ::-webkit-scrollbar-track {
@@ -86,8 +86,8 @@ body {
 
 /* Glassmorphism helpers */
 .glass-panel {
-  background: #ffffff;
-  border: 1px solid #e5e7eb; /* border-neutral-200 */
+  background: #e6ddca; /* bg-[#e6ddca] (surfaces) */
+  border: 1px solid #d8ccb4; /* border-[#d8ccb4] */
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05); /* shadow-sm */
   transition: background 0.3s, border-color 0.3s;
 }
@@ -101,7 +101,7 @@ body {
 }
 
 .glass-panel-neon {
-  background: #ffffff;
+  background: #e6ddca; /* bg-[#e6ddca] (surfaces) */
   border: 1px solid rgba(245, 158, 11, 0.3);
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05); /* shadow-sm */
   transition: background 0.3s, border-color 0.3s;

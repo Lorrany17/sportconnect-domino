@@ -152,7 +152,7 @@ export default function RefereePanel({
           <h1 className="font-display text-3xl font-black tracking-tight uppercase">
             Arbitragem de <span className="text-gradient-electric">Partidas</span>
           </h1>
-          <p className="text-brand-text-muted text-sm mt-1">
+          <p className="text-stone-500 dark:text-brand-text-muted text-sm mt-1">
             Painel do Mesário para controle de pontuação rápida, sets e anulações em tempo real.
           </p>
         </div>
@@ -162,7 +162,7 @@ export default function RefereePanel({
         {/* Left Column: Matches Selection List */}
         <div className="lg:col-span-1 space-y-6">
           <div className="glass-panel rounded-2xl p-5 border border-brand-border/60">
-            <h3 className="text-xs font-black uppercase tracking-widest text-brand-text-muted mb-4">
+            <h3 className="text-xs font-black uppercase tracking-widest text-stone-500 dark:text-brand-text-muted mb-4">
               Confrontos do Torneio
             </h3>
 
@@ -231,8 +231,8 @@ export default function RefereePanel({
                             selectedMatchId === m.id
                               ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-600 dark:border-blue-500 dark:text-white"
                               : isMatchReady
-                              ? "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:bg-neutral-900/50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/50"
-                              : "bg-neutral-50 border-dashed border-neutral-200 text-neutral-400 cursor-not-allowed dark:bg-neutral-950/20 dark:border-brand-border/40 dark:border-dashed dark:text-neutral-600"
+                              ? "bg-[#e6ddca] border-[#d8ccb4] text-stone-700 hover:bg-[#d8ccb4]/40 dark:bg-neutral-900/50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/50"
+                              : "bg-[#e6ddca]/50 border-dashed border-[#d8ccb4]/60 text-neutral-400 cursor-not-allowed dark:bg-neutral-950/20 dark:border-brand-border/40 dark:border-dashed dark:text-neutral-600"
                           }`}
                         >
                           <div className={`flex justify-between items-center text-[9px] font-bold mb-1 ${
@@ -245,7 +245,7 @@ export default function RefereePanel({
                             selectedMatchId === m.id
                               ? "text-white font-bold"
                               : isMatchReady
-                              ? "text-neutral-900 dark:text-neutral-400 font-bold"
+                              ? "text-[#3b342e] dark:text-neutral-400 font-bold"
                               : "text-neutral-400 dark:text-neutral-500"
                           }`}>
                             {!isMatchReady && <Lock className="h-3 w-3 shrink-0" />}
@@ -283,7 +283,7 @@ export default function RefereePanel({
                         className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                           selectedMatchId === m.id
                             ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-600 dark:border-blue-500 dark:text-white"
-                            : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:bg-neutral-900/50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/50"
+                            : "bg-[#e6ddca] border-[#d8ccb4] text-stone-700 hover:bg-[#d8ccb4]/40 dark:bg-neutral-900/50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/50"
                         }`}
                       >
                         <div className={`flex justify-between items-center text-[9px] font-bold mb-1 ${
@@ -295,10 +295,10 @@ export default function RefereePanel({
                           }`}>FIM</span>
                         </div>
                         <div className={`text-xs font-semibold truncate ${
-                          selectedMatchId === m.id ? "text-white" : "text-neutral-800 dark:text-neutral-400"
+                          selectedMatchId === m.id ? "text-white" : "text-[#3b342e] dark:text-neutral-400"
                         }`}>{m.teamA.name}</div>
                         <div className={`text-xs font-semibold truncate ${
-                          selectedMatchId === m.id ? "text-white" : "text-neutral-800 dark:text-neutral-400"
+                          selectedMatchId === m.id ? "text-white" : "text-[#3b342e] dark:text-neutral-400"
                         }`}>{m.teamB.name}</div>
                       </button>
                     ))}
@@ -314,8 +314,8 @@ export default function RefereePanel({
           {!selectedMatch ? (
             <div className="glass-panel rounded-2xl p-16 border border-brand-border/60 text-center">
               <ClipboardCheck className="h-14 w-14 text-neutral-800 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-white">Nenhum confronto selecionado</h3>
-              <p className="text-brand-text-muted text-sm mt-1 max-w-sm mx-auto">
+              <h3 className="text-lg font-bold text-stone-800 dark:text-white">Nenhum confronto selecionado</h3>
+              <p className="text-stone-500 dark:text-brand-text-muted text-sm mt-1 max-w-sm mx-auto">
                 Gere o chaveamento das duplas e selecione um confronto ao lado para iniciar a arbitragem da partida.
               </p>
             </div>
@@ -327,7 +327,7 @@ export default function RefereePanel({
                   <div className="text-[10px] font-bold text-brand-electric-light tracking-widest uppercase mb-1">
                     {selectedMatch.phase} • MESA {selectedMatch.tableNumber}
                   </div>
-                  <h2 className="text-2xl font-black uppercase text-white tracking-wide">
+                  <h2 className="text-2xl font-black uppercase text-stone-800 dark:text-white tracking-wide">
                     SÚMULA DIGITAL
                   </h2>
                 </div>
@@ -356,10 +356,10 @@ export default function RefereePanel({
                       ) : (
                         <Lock className="h-12 w-12 text-neutral-600 mb-4" />
                       )}
-                      <h3 className="text-xl font-black text-neutral-900 dark:text-white uppercase tracking-wider">
+                      <h3 className="text-xl font-black text-[#3b342e] dark:text-white uppercase tracking-wider">
                         {isMatchReady ? "Confronto Agendado" : "Confronto Bloqueado"}
                       </h3>
-                      <p className="text-brand-text-muted text-sm mt-2 max-w-sm mx-auto">
+                      <p className="text-stone-500 dark:text-brand-text-muted text-sm mt-2 max-w-sm mx-auto">
                         {isMatchReady
                           ? `Este confronto entre ${selectedMatch.teamA.name} e ${selectedMatch.teamB.name} está pronto para começar na Mesa ${selectedMatch.tableNumber}.`
                           : `Este confronto está aguardando a definição dos adversários das fases anteriores para começar na Mesa ${selectedMatch.tableNumber}.`
@@ -395,22 +395,22 @@ export default function RefereePanel({
                         <span className="text-[10px] font-black text-brand-electric-light tracking-widest uppercase block mb-1">
                           DUPLA A (CASA)
                         </span>
-                        <h3 className="text-xl font-black text-neutral-900 dark:text-white truncate">{selectedMatch.teamA.name}</h3>
-                        <p className="text-[11px] text-brand-text-muted mt-1">
+                        <h3 className="text-xl font-black text-[#3b342e] dark:text-white truncate">{selectedMatch.teamA.name}</h3>
+                        <p className="text-[11px] text-stone-500 dark:text-brand-text-muted mt-1">
                           {selectedMatch.teamA.players[0]} & {selectedMatch.teamA.players[1]}
                         </p>
                       </div>
 
                       <div className="my-4 flex flex-col items-center justify-center">
-                        <span className="font-display font-black text-6xl text-neutral-900 dark:text-white select-none leading-none">
+                        <span className="font-display font-black text-6xl text-[#3b342e] dark:text-white select-none leading-none">
                           {scoreA}
                         </span>
 
                         {/* Set dots for Team A if Best of 3 */}
                         {isBestOf3 && (
                           <div className="mt-3 space-y-1.5">
-                            <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">
-                              Quadras Vencidas: <span className="text-neutral-900 dark:text-white font-black">{setsA}</span>
+                            <div className="text-[10px] font-bold text-stone-500 dark:text-brand-text-muted uppercase tracking-wider">
+                               Quadras Vencidas: <span className="text-[#3b342e] dark:text-white font-black">{setsA}</span>
                             </div>
                             <div className="flex justify-center gap-1.5">
                               <span
@@ -440,14 +440,14 @@ export default function RefereePanel({
                           <button
                             onClick={() => handleAddPoints(selectedMatch.teamA.id, 1)}
                             disabled={isMatchFinished}
-                            className="py-2 px-1 text-[10px] font-black uppercase tracking-wider rounded-xl border border-neutral-200 dark:border-brand-border bg-neutral-100 dark:bg-neutral-950 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:border-brand-electric hover:bg-brand-electric/10 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                            className="py-2 px-1 text-[10px] font-black uppercase tracking-wider rounded-xl border border-[#d8ccb4] dark:border-brand-border bg-[#f2ece0] dark:bg-neutral-950 text-stone-600 dark:text-neutral-300 hover:text-[#3b342e] dark:hover:text-white hover:border-brand-electric hover:bg-brand-electric/10 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                           >
                             +1 Ponto
                           </button>
                           <button
                             onClick={() => handleAddPoints(selectedMatch.teamA.id, 2, "Lá e Lô")}
                             disabled={isMatchFinished}
-                            className="py-2 px-1 text-[10px] font-black uppercase tracking-wider rounded-xl border border-neutral-200 dark:border-brand-border bg-neutral-100 dark:bg-neutral-950 text-brand-electric-light hover:text-brand-electric dark:hover:text-white hover:border-brand-electric hover:bg-brand-electric/10 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                            className="py-2 px-1 text-[10px] font-black uppercase tracking-wider rounded-xl border border-[#d8ccb4] dark:border-brand-border bg-[#f2ece0] dark:bg-neutral-950 text-brand-electric-light hover:text-brand-electric dark:hover:text-white hover:border-brand-electric hover:bg-brand-electric/10 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                             title="Batida nas duas pontas (lá e lô)"
                           >
                             +2 Pontos
@@ -494,22 +494,22 @@ export default function RefereePanel({
                         <span className="text-[10px] font-black text-brand-neon tracking-widest uppercase block mb-1">
                           DUPLA B (VISITANTE)
                         </span>
-                        <h3 className="text-xl font-black text-neutral-900 dark:text-white truncate">{selectedMatch.teamB.name}</h3>
-                        <p className="text-[11px] text-brand-text-muted mt-1">
+                        <h3 className="text-xl font-black text-[#3b342e] dark:text-white truncate">{selectedMatch.teamB.name}</h3>
+                        <p className="text-[11px] text-stone-500 dark:text-brand-text-muted mt-1">
                           {selectedMatch.teamB.players[0]} & {selectedMatch.teamB.players[1]}
                         </p>
                       </div>
 
                       <div className="my-4 flex flex-col items-center justify-center">
-                        <span className="font-display font-black text-6xl text-neutral-900 dark:text-white select-none leading-none">
+                        <span className="font-display font-black text-6xl text-[#3b342e] dark:text-white select-none leading-none">
                           {scoreB}
                         </span>
 
                         {/* Set dots for Team B if Best of 3 */}
                         {isBestOf3 && (
                           <div className="mt-3 space-y-1.5">
-                            <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">
-                              Quadras Vencidas: <span className="text-neutral-900 dark:text-white font-black">{setsB}</span>
+                            <div className="text-[10px] font-bold text-stone-500 dark:text-brand-text-muted uppercase tracking-wider">
+                               Quadras Vencidas: <span className="text-[#3b342e] dark:text-white font-black">{setsB}</span>
                             </div>
                             <div className="flex justify-center gap-1.5">
                               <span
@@ -539,14 +539,14 @@ export default function RefereePanel({
                           <button
                             onClick={() => handleAddPoints(selectedMatch.teamB.id, 1)}
                             disabled={isMatchFinished}
-                            className="py-2 px-1 text-[10px] font-black uppercase tracking-wider rounded-xl border border-neutral-200 dark:border-brand-border bg-neutral-100 dark:bg-neutral-950 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:border-brand-neon-orange hover:bg-brand-neon-orange/10 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                            className="py-2 px-1 text-[10px] font-black uppercase tracking-wider rounded-xl border border-[#d8ccb4] dark:border-brand-border bg-[#f2ece0] dark:bg-neutral-950 text-stone-600 dark:text-neutral-300 hover:text-[#3b342e] dark:hover:text-white hover:border-brand-neon-orange hover:bg-brand-neon-orange/10 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                           >
                             +1 Ponto
                           </button>
                           <button
                             onClick={() => handleAddPoints(selectedMatch.teamB.id, 2, "Lá e Lô")}
                             disabled={isMatchFinished}
-                            className="py-2 px-1 text-[10px] font-black uppercase tracking-wider rounded-xl border border-neutral-200 dark:border-brand-border bg-neutral-100 dark:bg-neutral-950 text-brand-neon hover:text-white hover:border-brand-neon hover:bg-brand-neon/10 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                            className="py-2 px-1 text-[10px] font-black uppercase tracking-wider rounded-xl border border-[#d8ccb4] dark:border-brand-border bg-[#f2ece0] dark:bg-neutral-950 text-brand-neon hover:text-white hover:border-brand-neon hover:bg-brand-neon/10 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                             title="Batida nas duas pontas (lá e lô)"
                           >
                             +2 Pontos
@@ -561,11 +561,11 @@ export default function RefereePanel({
                     <div className="w-full">
                       {/* Validate & End Match Panel */}
                       <div className="glass-panel rounded-2xl p-5 border border-brand-border/60">
-                        <h3 className="text-sm font-black uppercase tracking-wider text-brand-text mb-2 flex items-center gap-2">
+                        <h3 className="text-sm font-black uppercase tracking-wider text-stone-800 dark:text-brand-text mb-2 flex items-center gap-2">
                           <CheckCircle className="h-4 w-4 text-brand-electric-light" />
                           <span>Encerramento de Partida</span>
                         </h3>
-                        <p className="text-xs text-brand-text-muted leading-relaxed">
+                        <p className="text-xs text-stone-500 dark:text-brand-text-muted leading-relaxed">
                           {isMatchFinished
                             ? "Partida concluída de acordo com as regras do regulamento. Envie o resultado final para oficializar na chave do torneio."
                             : "A partida está em andamento. O envio de resultados será habilitado assim que uma dupla atingir as condições de vitória."}
@@ -573,25 +573,25 @@ export default function RefereePanel({
 
                         {isMatchFinished ? (
                           <div className="mt-4 p-3.5 rounded-xl bg-amber-600/10 border border-amber-500/20 flex items-center gap-3">
-                            <Trophy className="h-5 w-5 text-brand-neon shrink-0 animate-bounce" />
+                            <Trophy className="h-5 w-5 text-amber-600 dark:text-brand-neon shrink-0 animate-bounce" />
                             <div>
-                              <span className="text-[10px] text-brand-text-muted font-bold block uppercase">
+                              <span className="text-[10px] text-amber-800 dark:text-brand-text-muted font-bold block uppercase">
                                 VENCEDOR DA PARTIDA:
                               </span>
-                              <span className="text-xs font-black text-white">
+                              <span className="text-xs font-black text-stone-900 dark:text-white">
                                 {matchWinnerName}
                                 {isBestOf3 && ` (${setsA} - ${setsB} em Sets)`}
                               </span>
                             </div>
                           </div>
                         ) : (
-                          <div className="mt-4 p-3.5 rounded-xl bg-neutral-950/60 border border-brand-border flex items-center gap-3">
-                            <Trophy className="h-5 w-5 text-neutral-700 shrink-0" />
+                          <div className="mt-4 p-3.5 rounded-xl bg-stone-100 border border-stone-200 dark:bg-neutral-950/60 dark:border-brand-border flex items-center gap-3">
+                            <Trophy className="h-5 w-5 text-stone-400 dark:text-neutral-700 shrink-0" />
                             <div>
-                              <span className="text-[10px] text-brand-text-muted font-bold block uppercase">
+                              <span className="text-[10px] text-stone-500 dark:text-brand-text-muted font-bold block uppercase">
                                 PARCIAL ATUAL:
                               </span>
-                              <span className="text-xs font-black text-neutral-400">
+                              <span className="text-xs font-black text-stone-700 dark:text-neutral-400">
                                 {scoreA}x{scoreB}
                                 {isBestOf3 ? ` (Sets: ${setsA}x${setsB})` : " (Set Único)"}
                               </span>
@@ -602,7 +602,7 @@ export default function RefereePanel({
                         <button
                           onClick={handleCompleteMatch}
                           disabled={!isMatchFinished}
-                          className="w-full mt-4 py-3.5 rounded-xl bg-brand-neon hover:bg-brand-neon-hover disabled:bg-neutral-800 disabled:text-neutral-600 disabled:border-transparent text-neutral-950 font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-brand-neon/15 cursor-pointer disabled:cursor-not-allowed"
+                          className="w-full mt-4 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white dark:bg-brand-neon dark:hover:bg-brand-neon-hover dark:text-neutral-950 disabled:bg-stone-200 disabled:text-stone-400 dark:disabled:bg-neutral-800 dark:disabled:text-neutral-600 disabled:border-transparent font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-blue-600/15 dark:shadow-brand-neon/15 cursor-pointer disabled:cursor-not-allowed"
                         >
                           Encerrar Partida e Enviar Resultado
                         </button>
@@ -614,8 +614,8 @@ export default function RefereePanel({
 
               {/* Rounds History */}
               <div className="glass-panel rounded-2xl p-5 border border-brand-border/60">
-                <h3 className="text-sm font-black uppercase tracking-wider text-brand-text mb-4 flex items-center gap-2">
-                  <History className="h-4 w-4 text-brand-text-muted" />
+                <h3 className="text-sm font-black uppercase tracking-wider text-stone-800 dark:text-brand-text mb-4 flex items-center gap-2">
+                  <History className="h-4 w-4 text-stone-500 dark:text-brand-text-muted" />
                   <span>Histórico de Batidas / Súmula Detalhada</span>
                 </h3>
 
@@ -637,26 +637,24 @@ export default function RefereePanel({
                       return (
                         <div
                           key={round.roundNumber}
-                          className="flex items-center justify-between p-3 rounded-lg bg-neutral-950/60 border border-brand-border text-xs"
+                          className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-[#d8ccb4] dark:border-brand-border shadow-sm text-xs"
                         >
                           <div className="flex items-center gap-3">
-                            <span className="h-5 w-5 rounded bg-neutral-900 border border-brand-border text-brand-text-muted font-bold text-[10px] flex items-center justify-center">
+                            <span className="h-5 w-5 rounded bg-stone-100 dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border text-stone-500 dark:text-brand-text-muted font-bold text-[10px] flex items-center justify-center">
                               R{round.roundNumber}
                             </span>
                             <div className="flex items-center gap-1.5">
                               <span
                                 className={`font-bold ${
                                   isAnnulled
-                                    ? "text-red-400"
-                                    : isTeamAWinner
-                                    ? "text-brand-electric-light"
-                                    : "text-brand-neon"
+                                    ? "text-red-600 dark:text-red-400"
+                                    : "text-stone-800 dark:text-white"
                                 }`}
                               >
                                 {winningTeamName}
                               </span>
                               {round.note && (
-                                <span className="text-[10px] text-brand-neon bg-brand-neon/5 border border-brand-neon/20 px-2 py-0.5 rounded font-medium">
+                                <span className="text-[10px] text-amber-800 bg-amber-100 border border-amber-300 dark:text-brand-neon dark:bg-brand-neon/5 dark:border-brand-neon/20 px-2 py-0.5 rounded font-medium">
                                   {round.note}
                                 </span>
                               )}
@@ -664,10 +662,10 @@ export default function RefereePanel({
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-brand-text-muted">Pontuação da rodada:</span>
+                            <span className="text-[10px] text-stone-500 dark:text-brand-text-muted">Pontuação da rodada:</span>
                             <span
                               className={`font-black ${
-                                isAnnulled ? "text-neutral-500" : "text-brand-electric-light"
+                                isAnnulled ? "text-stone-400 dark:text-neutral-500" : "text-stone-800 dark:text-brand-electric-light"
                               }`}
                             >
                               +{round.pointsGenerated} pts
@@ -691,7 +689,7 @@ export default function RefereePanel({
                       <div className="text-[10px] text-brand-electric-light font-bold uppercase tracking-widest">
                         CONFRONTO CONCLUÍDO
                       </div>
-                      <h4 className="font-display font-black text-lg text-white">
+                      <h4 className="font-display font-black text-lg text-stone-900 dark:text-white">
                         Vencedor:{" "}
                         {selectedMatch.winnerId === selectedMatch.teamA.id
                           ? selectedMatch.teamA.name
@@ -700,8 +698,8 @@ export default function RefereePanel({
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-brand-text-muted block font-semibold">PLACAR FINAL</span>
-                    <span className="font-display font-black text-2xl text-white">
+                    <span className="text-[10px] text-stone-500 dark:text-brand-text-muted block font-semibold">PLACAR FINAL</span>
+                    <span className="font-display font-black text-2xl text-stone-900 dark:text-white">
                       {selectedMatch.scoreA} - {selectedMatch.scoreB}
                       {selectedMatch.setsA !== undefined && selectedMatch.setsB !== undefined
                         ? ` (Sets: ${selectedMatch.setsA}x${selectedMatch.setsB})`

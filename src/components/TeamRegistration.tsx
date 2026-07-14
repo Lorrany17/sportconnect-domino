@@ -212,7 +212,7 @@ export default function TeamRegistration({
                 ? "bg-emerald-950/95 text-emerald-400 border-emerald-500/30"
                 : toast.type === "error"
                 ? "bg-red-950/95 text-red-400 border-red-500/30"
-                : "bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700/60"
+                : "bg-[#e6ddca]/95 dark:bg-neutral-900/95 text-[#3b342e] dark:text-neutral-300 border-[#d8ccb4] dark:border-neutral-700/60"
             }`}
           >
             {toast.type === "success" && <Sparkles className="h-5 w-5 text-emerald-400" />}
@@ -301,7 +301,7 @@ export default function TeamRegistration({
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
                   placeholder="Ex: Os Imbatíveis"
-                  className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-neutral-900 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-600"
+                  className="w-full px-4 py-3 rounded-xl bg-[#f2ece0] dark:bg-neutral-950/80 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600"
                 />
               </div>
 
@@ -314,7 +314,7 @@ export default function TeamRegistration({
                   value={player1}
                   onChange={(e) => setPlayer1(e.target.value)}
                   placeholder="Ex: Carlos Silva"
-                  className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-neutral-900 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-600"
+                  className="w-full px-4 py-3 rounded-xl bg-[#f2ece0] dark:bg-neutral-950/80 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600"
                 />
               </div>
 
@@ -327,7 +327,7 @@ export default function TeamRegistration({
                   value={player2}
                   onChange={(e) => setPlayer2(e.target.value)}
                   placeholder="Ex: Roberto Souza"
-                  className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-neutral-900 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-600"
+                  className="w-full px-4 py-3 rounded-xl bg-[#f2ece0] dark:bg-neutral-950/80 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600"
                 />
               </div>
 
@@ -375,7 +375,7 @@ export default function TeamRegistration({
                   {teams.map((team, idx) => (
                     <div
                       key={team.id}
-                      className="group relative rounded-xl bg-white dark:bg-neutral-900/60 border border-neutral-200 dark:border-brand-border hover:border-brand-electric/30 p-4 transition-all duration-300 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/90 flex flex-col justify-between shadow-sm dark:shadow-none"
+                      className="group relative rounded-xl bg-[#e6ddca] dark:bg-neutral-900/60 border border-[#d8ccb4] dark:border-brand-border hover:border-brand-electric/30 p-4 transition-all duration-300 hover:bg-[#e6ddca]/80 dark:hover:bg-neutral-900/90 flex flex-col justify-between shadow-sm dark:shadow-none"
                     >
                       <div className="flex justify-between items-start">
                         <div className="max-w-[80%]">
@@ -397,7 +397,7 @@ export default function TeamRegistration({
                               </span>
                             )}
                           </div>
-                          <h3 className="font-display font-bold text-lg text-neutral-900 dark:text-white tracking-wide truncate group-hover:text-brand-electric-light transition-colors">
+                          <h3 className="font-display font-bold text-lg text-[#3b342e] dark:text-white tracking-wide truncate group-hover:text-brand-electric-light transition-colors">
                             {team.name}
                           </h3>
                         </div>

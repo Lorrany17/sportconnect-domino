@@ -35,7 +35,7 @@ export default function Navbar({
   ];
 
   return (
-    <header className="w-full py-3 border-b sticky top-0 z-40 bg-white dark:bg-[#0a0a0a] dark:border-neutral-800">
+    <header className="w-full py-3 border-b border-[#d8ccb4] dark:border-neutral-800 sticky top-0 z-40 bg-[#f2ece0] dark:bg-[#0a0a0a]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           {/* Logo Brand */}
@@ -67,7 +67,7 @@ export default function Navbar({
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 cursor-pointer ${isActive
                         ? "bg-brand-electric text-white shadow-lg shadow-brand-electric/25 transform scale-105"
-                        : "text-brand-text-muted hover:text-white hover:bg-neutral-900/60"
+                        : "text-stone-600 hover:text-[#3b342e] hover:bg-[#d8ccb4]/40 dark:text-brand-text-muted dark:hover:text-white dark:hover:bg-neutral-900/60"
                       }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -80,10 +80,10 @@ export default function Navbar({
 
           {/* Quick Info Badges & Admin Actions */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-lg bg-neutral-950/20 dark:bg-neutral-900/80 border border-neutral-200 dark:border-brand-border px-3 py-1.5 text-xs">
+            <div className="flex items-center gap-2 rounded-lg bg-[#d8ccb4]/20 dark:bg-neutral-900/80 border border-[#d8ccb4] dark:border-brand-border px-3 py-1.5 text-xs">
               <Users className="h-3.5 w-3.5 text-brand-electric-light" />
-              <span className="font-bold text-neutral-500 dark:text-brand-text-muted">
-                Duplas: <span className="text-neutral-800 dark:text-brand-text font-black">{teamCount}</span>
+              <span className="font-bold text-stone-500 dark:text-brand-text-muted">
+                Duplas: <span className="text-[#3b342e] dark:text-brand-text font-black">{teamCount}</span>
               </span>
             </div>
 
@@ -99,7 +99,7 @@ export default function Navbar({
             {/* Theme Toggle Button */}
             <button
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="p-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-900/60 dark:hover:bg-neutral-900 border border-neutral-200 dark:border-brand-border text-neutral-800 dark:text-neutral-300 transition-all cursor-pointer hover:text-brand-electric dark:hover:text-brand-neon active:scale-95 flex items-center justify-center"
+              className="p-2 rounded-xl bg-[#f2ece0] hover:bg-[#d8ccb4]/40 dark:bg-neutral-900/60 dark:hover:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border text-[#3b342e] dark:text-neutral-300 transition-all cursor-pointer hover:text-brand-electric dark:hover:text-brand-neon active:scale-95 flex items-center justify-center"
               title="Alternar Tema"
             >
               {!mounted ? (
@@ -133,7 +133,7 @@ export default function Navbar({
                     </Link>
                     <button
                       onClick={logout}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-brand-border hover:bg-neutral-200 dark:hover:border-neutral-700 text-xs font-bold text-neutral-600 hover:text-neutral-900 dark:text-brand-text-muted dark:hover:text-white transition-all cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f2ece0] dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border hover:bg-[#d8ccb4]/40 dark:hover:bg-neutral-700 text-xs font-bold text-stone-600 hover:text-[#3b342e] dark:text-brand-text-muted dark:hover:text-white transition-all cursor-pointer"
                     >
                       <LogOut className="h-3.5 w-3.5" />
                       <span>Sair</span>
@@ -155,7 +155,7 @@ export default function Navbar({
 
         {/* Mobile Navigation Tabs (Admin Mode Only) */}
         {isAdminLayout && setActiveTab && (
-          <div className="md:hidden flex border-t border-neutral-200 dark:border-brand-border/40 py-2 justify-around">
+          <div className="md:hidden flex border-t border-[#d8ccb4] dark:border-brand-border/40 py-2 justify-around">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
