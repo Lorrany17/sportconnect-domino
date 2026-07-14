@@ -250,6 +250,11 @@ export default function TournamentBracket({
                     {phaseMatches.map((m) => {
                       const isCompleted = m.status === "COMPLETED";
                       const isLive = m.status === "LIVE";
+                      const showSets =
+                        (m.setsA !== undefined && m.setsA > 0) ||
+                        (m.setsB !== undefined && m.setsB > 0) ||
+                        m.phase.toLowerCase() === "semifinal" ||
+                        m.phase.toLowerCase() === "final";
 
                       return (
                         <div
@@ -303,7 +308,16 @@ export default function TournamentBracket({
                             <span className="truncate max-w-[120px]" title={m.teamA.name}>
                               {m.teamA.name}
                             </span>
-                            <span className="font-display font-black text-sm">{m.scoreA}</span>
+                            <span className="font-display font-black text-sm flex items-center gap-0.5">
+                              {showSets ? (
+                                <>
+                                  {m.setsA || 0}
+                                  <span className="text-[8px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest ml-0.5">S</span>
+                                </>
+                              ) : (
+                                m.scoreA
+                              )}
+                            </span>
                           </div>
 
                           {/* Divider */}
@@ -329,7 +343,16 @@ export default function TournamentBracket({
                             <span className="truncate max-w-[120px]" title={m.teamB.name}>
                               {m.teamB.name}
                             </span>
-                            <span className="font-display font-black text-sm">{m.scoreB}</span>
+                            <span className="font-display font-black text-sm flex items-center gap-0.5">
+                              {showSets ? (
+                                <>
+                                  {m.setsB || 0}
+                                  <span className="text-[8px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest ml-0.5">S</span>
+                                </>
+                              ) : (
+                                m.scoreB
+                              )}
+                            </span>
                           </div>
 
                           {/* Connector lines inside Winners Bracket */}

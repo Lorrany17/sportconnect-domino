@@ -700,10 +700,14 @@ export default function RefereePanel({
                   <div className="text-right">
                     <span className="text-[10px] text-stone-500 dark:text-brand-text-muted block font-semibold">PLACAR FINAL</span>
                     <span className="font-display font-black text-2xl text-stone-900 dark:text-white">
-                      {selectedMatch.scoreA} - {selectedMatch.scoreB}
-                      {selectedMatch.setsA !== undefined && selectedMatch.setsB !== undefined
-                        ? ` (Sets: ${selectedMatch.setsA}x${selectedMatch.setsB})`
-                        : ""}
+                      {(selectedMatch.setsA !== undefined && selectedMatch.setsA > 0) ||
+                      (selectedMatch.setsB !== undefined && selectedMatch.setsB > 0) ||
+                      selectedMatch.phase.toLowerCase() === "semifinal" ||
+                      selectedMatch.phase.toLowerCase() === "final" ? (
+                        `${selectedMatch.setsA || 0} - ${selectedMatch.setsB || 0} (em Sets)`
+                      ) : (
+                        `${selectedMatch.scoreA} - ${selectedMatch.scoreB}`
+                      )}
                     </span>
                   </div>
                 </div>
