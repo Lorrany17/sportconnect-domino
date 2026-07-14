@@ -199,6 +199,7 @@ interface TournamentContextType {
   handleLoadMockTeams: (count: number) => void;
   handleGenerateBracket: (onNavigate?: () => void) => void;
   handleUpdateScore: (matchId: string, teamAScore: number, teamBScore: number) => void;
+  handleSubtractPoint: (matchId: string, teamId: string) => void;
   handleAddRound: (matchId: string, round: Round, limit?: number) => void;
   handleStartMatch: (matchId: string) => void;
   handleFinishMatch: (matchId: string, winnerId: string) => void;
@@ -642,6 +643,55 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     saveMatches(updatedMatches);
   };
 
+  const handleSubtractPoint = (matchId: string, teamId: string) => {
+    const updatedMatches = matches.map((m) => {
+      if (m.id === matchId) {
+        const isTeamA = teamId === m.teamA.id;
+        const currentScore = isTeamA ? m.scoreA : m.scoreB;
+        if (currentScore <= 0) return m;
+
+        const newScoreA = isTeamA ? Math.max(0, m.scoreA - 1) : m.scoreA;
+        const newScoreB = !isTeamA ? Math.max(0, m.scoreB - 1) : m.scoreB;
+
+        const rounds = [...m.detailedScore.rounds];
+        let lastRoundIndex = -1;
+        for (let i = rounds.length - 1; i >= 0; i--) {
+          if (rounds[i].winnerTeamId === teamId) {
+            lastRoundIndex = i;
+            break;
+          }
+        }
+
+        if (lastRoundIndex !== -1) {
+          const round = { ...rounds[lastRoundIndex] };
+          round.pointsGenerated -= 1;
+          if (round.pointsGenerated <= 0) {
+            rounds.splice(lastRoundIndex, 1);
+          } else {
+            rounds[lastRoundIndex] = round;
+          }
+        }
+
+        addEvent(
+          `Mesa ${m.tableNumber} (${m.phase}): Removido 1 ponto de "${isTeamA ? m.teamA.name : m.teamB.name}".`,
+          "SCORE_CHANGE",
+          matchId
+        );
+
+        return {
+          ...m,
+          scoreA: newScoreA,
+          scoreB: newScoreB,
+          detailedScore: {
+            rounds,
+          },
+        };
+      }
+      return m;
+    });
+    saveMatches(updatedMatches);
+  };
+
   // Add detailed Round Record
   const handleAddRound = (matchId: string, round: Round, limit: number = 4) => {
     const updatedMatches = matches.map((m) => {
@@ -1037,6 +1087,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         handleLoadMockTeams,
         handleGenerateBracket,
         handleUpdateScore,
+        handleSubtractPoint,
         handleAddRound,
         handleStartMatch,
         handleFinishMatch,

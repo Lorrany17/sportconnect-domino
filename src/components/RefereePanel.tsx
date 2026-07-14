@@ -1,11 +1,12 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState } from "react";
 import { Match, Round } from "@/types";
-import { Award, ClipboardCheck, History, Trophy, Clock, CheckCircle, Play, Lock } from "lucide-react";
+import { Award, ClipboardCheck, History, Trophy, Clock, CheckCircle, Play, Lock, RotateCcw } from "lucide-react";
 
 interface RefereePanelProps {
   matches: Match[];
   onUpdateScore: (matchId: string, teamAScore: number, teamBScore: number) => void;
+  onSubtractPoint: (matchId: string, teamId: string) => void;
   onAddRound: (matchId: string, round: Round, limit: number) => void;
   onStartMatch: (matchId: string) => void;
   onFinishMatch: (matchId: string, winnerId: string) => void;
@@ -13,6 +14,7 @@ interface RefereePanelProps {
 
 export default function RefereePanel({
   matches,
+  onSubtractPoint,
   onAddRound,
   onStartMatch,
   onFinishMatch,
@@ -452,6 +454,14 @@ export default function RefereePanel({
                           >
                             +2 Pontos
                           </button>
+                          <button
+                            onClick={() => onSubtractPoint(selectedMatch.id, selectedMatch.teamA.id)}
+                            disabled={isMatchFinished || scoreA <= 0}
+                            className="col-span-2 py-1.5 px-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg border border-stone-200 dark:border-neutral-700 bg-stone-100 dark:bg-neutral-800 text-stone-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-white hover:border-red-300 dark:hover:border-red-500 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center justify-center gap-1.5 mt-1"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            Desfazer / -1 Ponto
+                          </button>
                         </div>
                       )}
                     </div>
@@ -482,7 +492,7 @@ export default function RefereePanel({
                             onClick={handleAnnulRound}
                             className="py-2 px-1.5 rounded-lg border border-neutral-200 dark:border-brand-border hover:border-red-500/50 bg-neutral-100 dark:bg-neutral-950 text-red-500 hover:text-red-400 hover:bg-red-500/5 text-[9px] font-black uppercase tracking-wider text-center transition-all cursor-pointer active:scale-95"
                           >
-                            Anular
+                            Anular Rodada
                           </button>
                         </div>
                       )}
@@ -550,6 +560,14 @@ export default function RefereePanel({
                             title="Batida nas duas pontas (lá e lô)"
                           >
                             +2 Pontos
+                          </button>
+                          <button
+                            onClick={() => onSubtractPoint(selectedMatch.id, selectedMatch.teamB.id)}
+                            disabled={isMatchFinished || scoreB <= 0}
+                            className="col-span-2 py-1.5 px-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg border border-stone-200 dark:border-neutral-700 bg-stone-100 dark:bg-neutral-800 text-stone-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-white hover:border-red-300 dark:hover:border-red-500 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center justify-center gap-1.5 mt-1"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            Desfazer / -1 Ponto
                           </button>
                         </div>
                       )}

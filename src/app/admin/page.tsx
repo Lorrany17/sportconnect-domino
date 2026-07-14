@@ -20,6 +20,7 @@ export default function AdminPage() {
     handleLoadMockTeams,
     handleGenerateBracket,
     handleUpdateScore,
+    handleSubtractPoint,
     handleAddRound,
     handleStartMatch,
     handleFinishMatch,
@@ -72,6 +73,7 @@ export default function AdminPage() {
           <RefereePanel
             matches={matches}
             onUpdateScore={handleUpdateScore}
+            onSubtractPoint={handleSubtractPoint}
             onAddRound={handleAddRound}
             onStartMatch={handleStartMatch}
             onFinishMatch={handleFinishMatch}
