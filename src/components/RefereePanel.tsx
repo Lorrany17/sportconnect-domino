@@ -221,7 +221,10 @@ export default function RefereePanel({
                       Agendadas
                     </div>
                     {pendingMatches.map((m) => {
-                      const isMatchReady = !m.teamA.id.startsWith("placeholder-") && !m.teamB.id.startsWith("placeholder-");
+                      const isMatchReady = !m.teamA.id.startsWith("placeholder-") && 
+                                           !m.teamB.id.startsWith("placeholder-") &&
+                                           m.teamA.id !== "bye" &&
+                                           m.teamB.id !== "bye";
                       return (
                         <button
                           key={m.id}

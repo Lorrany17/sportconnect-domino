@@ -4,6 +4,7 @@ export interface Team {
   players: [string, string]; // Dupla: [Capitão, Jogador 2]
   createdAt: string;
   source?: "external" | "manual" | "csv";
+  status?: string;
 }
 
 export interface Round {

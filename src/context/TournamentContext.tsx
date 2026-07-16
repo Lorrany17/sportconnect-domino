@@ -19,6 +19,168 @@ const REVERSE_MATCH_ID_MAP: Record<string, string> = Object.fromEntries(
   Object.entries(MATCH_ID_MAP).map(([k, v]) => [v, k])
 );
 
+export const BYE_TEAM: Team = {
+  id: "bye",
+  name: "Chapéu / Folga",
+  players: ["Folga", "Folga"],
+  createdAt: "",
+};
+
+const codeToPrefix: Record<number, string> = {
+  1: "f",
+  2: "sf",
+  3: "qf",
+  4: "of",
+  5: "dsa"
+};
+
+const prefixToCode: Record<string, number> = {
+  f: 1,
+  sf: 2,
+  qf: 3,
+  of: 4,
+  dsa: 5
+};
+
+const getPrevPrefix = (currentPrefix: string): string => {
+  if (currentPrefix === "f") return "sf";
+  if (currentPrefix === "sf") return "qf";
+  if (currentPrefix === "qf") return "of";
+  if (currentPrefix === "of") return "dsa";
+  if (currentPrefix === "dsa") return "r4";
+  if (currentPrefix.startsWith("r")) {
+    const num = parseInt(currentPrefix.slice(1), 10);
+    if (!isNaN(num) && num > 1) {
+      return `r${num - 1}`;
+    }
+  }
+  return "";
+};
+
+export const getUuidForMatchId = (friendlyId: string): string => {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(friendlyId) && !friendlyId.startsWith("00000000-0000-0000-0000-")) {
+    return friendlyId;
+  }
+  const parts = friendlyId.split("-");
+  if (parts.length === 2) {
+    const prefix = parts[0];
+    const index = parseInt(parts[1], 10);
+    let code = 0;
+    if (prefixToCode[prefix]) {
+      code = prefixToCode[prefix];
+    } else if (prefix.startsWith("r")) {
+      const num = parseInt(prefix.slice(1), 10);
+      if (!isNaN(num)) {
+        code = 10 + num;
+      }
+    }
+    if (code > 0 && !isNaN(index)) {
+      return `00000000-0000-0000-0000-${code.toString().padStart(4, "0")}${index.toString().padStart(8, "0")}`;
+    }
+  }
+  return MATCH_ID_MAP[friendlyId] || friendlyId;
+};
+
+export const getFriendlyIdFromUuid = (uuid: string): string => {
+  if (uuid.startsWith("00000000-0000-0000-0000-")) {
+    const suffix = uuid.replace("00000000-0000-0000-0000-", "");
+    if (suffix.length === 12) {
+      const code = parseInt(suffix.slice(0, 4), 10);
+      const index = parseInt(suffix.slice(4), 10);
+      if (!isNaN(code) && !isNaN(index)) {
+        if (codeToPrefix[code]) {
+          return `${codeToPrefix[code]}-${index}`;
+        } else if (code > 10) {
+          return `r${code - 10}-${index}`;
+        }
+      }
+    }
+  }
+  return REVERSE_MATCH_ID_MAP[uuid] || uuid;
+};
+
+const getPlaceholderTeam = (matchFriendlyId: string, slot: "A" | "B"): Team => {
+  let label = `A definir ${slot}`;
+  const parts = matchFriendlyId.split("-");
+  if (parts.length === 2) {
+    const prefix = parts[0];
+    const index = parseInt(parts[1], 10);
+    const prevPrefix = getPrevPrefix(prefix);
+    if (prevPrefix) {
+      const srcIndex = slot === "A" ? index * 2 - 1 : index * 2;
+      const prevPhaseShort = prevPrefix.toUpperCase();
+      label = `Vencedor ${prevPhaseShort} ${srcIndex}`;
+    }
+  }
+  return {
+    id: `placeholder-${label.toLowerCase().replace(/\s/g, "-")}`,
+    name: label,
+    players: ["A definir", "A definir"],
+    createdAt: "",
+  };
+};
+
+const getPhaseNameFromPrefix = (prefix: string): string => {
+  if (prefix === "f") return "Final";
+  if (prefix === "sf") return "Semifinal";
+  if (prefix === "qf") return "Quartas de Final";
+  if (prefix === "of") return "Oitavas de Final";
+  if (prefix === "dsa") return "Dezesseis-avos de Final";
+  if (prefix.startsWith("r")) {
+    const num = parseInt(prefix.slice(1), 10);
+    if (!isNaN(num)) {
+      return `Fase de ${Math.pow(2, num)}`;
+    }
+  }
+  return "Fase Inicial";
+};
+
+const getRoundInfo = (roundIndex: number, totalRounds: number) => {
+  const diff = totalRounds - 1 - roundIndex;
+  if (diff === 0) {
+    return { prefix: "f", phase: "Final" };
+  } else if (diff === 1) {
+    return { prefix: "sf", phase: "Semifinal" };
+  } else if (diff === 2) {
+    return { prefix: "qf", phase: "Quartas de Final" };
+  } else if (diff === 3) {
+    return { prefix: "of", phase: "Oitavas de Final" };
+  } else if (diff === 4) {
+    return { prefix: "dsa", phase: "Dezesseis-avos de Final" };
+  } else {
+    return { prefix: `r${roundIndex + 1}`, phase: `Fase de ${Math.pow(2, diff + 1)}` };
+  }
+};
+
+export const compareMatchIds = (idA: string, idB: string): number => {
+  const parseMatchId = (id: string) => {
+    const parts = id.split("-");
+    if (parts.length === 2) {
+      const prefix = parts[0];
+      const index = parseInt(parts[1], 10);
+      let roundCode = 0;
+      if (prefixToCode[prefix]) {
+        roundCode = prefixToCode[prefix];
+      } else if (prefix.startsWith("r")) {
+        const num = parseInt(prefix.slice(1), 10);
+        if (!isNaN(num)) {
+          roundCode = 10 + num;
+        }
+      }
+      return { roundCode, index: isNaN(index) ? 0 : index };
+    }
+    return { roundCode: 999, index: 0 };
+  };
+
+  const a = parseMatchId(idA);
+  const b = parseMatchId(idB);
+
+  if (a.roundCode !== b.roundCode) {
+    return b.roundCode - a.roundCode;
+  }
+  return a.index - b.index;
+};
+
 const generateUUID = () => {
   if (typeof window !== "undefined" && window.crypto && window.crypto.randomUUID) {
     return window.crypto.randomUUID();
@@ -30,74 +192,54 @@ const generateUUID = () => {
   });
 };
 
-const getPlaceholderTeam = (matchFriendlyId: string, slot: "A" | "B"): Team => {
-  let label = "";
-  if (matchFriendlyId === "sf-1") {
-    label = slot === "A" ? "Vencedor QF 1" : "Vencedor QF 2";
-  } else if (matchFriendlyId === "sf-2") {
-    label = slot === "A" ? "Vencedor QF 3" : "Vencedor QF 4";
-  } else if (matchFriendlyId === "f-1") {
-    label = slot === "A" ? "Vencedor SF 1" : "Vencedor SF 2";
-  } else {
-    label = `A definir ${slot}`;
-  }
-  return {
-    id: `placeholder-${label.toLowerCase().replace(/\s/g, "-")}`,
-    name: label,
-    players: ["A definir", "A definir"],
-    createdAt: "",
-  };
-};
-
 const mapTeamFromDb = (dbTeam: any): Team => ({
   id: dbTeam.id,
   name: dbTeam.name,
   players: [dbTeam.player1, dbTeam.player2],
   createdAt: new Date().toISOString(),
   source: "manual",
+  status: dbTeam.status,
 });
 
-const mapMatchFromDb = (dbMatch: any, allTeams: Team[], hasQF: boolean): Match => {
-  const friendlyId = REVERSE_MATCH_ID_MAP[dbMatch.id] || dbMatch.id;
-  
-  const teamA = allTeams.find((t) => t.id === dbMatch.team_a_id) || getPlaceholderTeam(friendlyId, "A");
-  const teamB = allTeams.find((t) => t.id === dbMatch.team_b_id) || getPlaceholderTeam(friendlyId, "B");
-  
-  let phase = dbMatch.phase;
-  let tableNumber = 1;
-  let sourceMatchAId: string | undefined = undefined;
-  let sourceMatchBId: string | undefined = undefined;
-  
-  if (friendlyId.startsWith("qf-")) {
-    phase = "Quartas de Final";
-    tableNumber = parseInt(friendlyId.split("-")[1], 10);
-  } else if (friendlyId.startsWith("sf-")) {
-    phase = "Semifinal";
-    tableNumber = parseInt(friendlyId.split("-")[1], 10);
-    if (hasQF) {
-      sourceMatchAId = tableNumber === 1 ? "qf-1" : "qf-3";
-      sourceMatchBId = tableNumber === 1 ? "qf-2" : "qf-4";
-    }
-  } else if (friendlyId === "f-1") {
-    phase = "Final";
-    tableNumber = 1;
-    sourceMatchAId = "sf-1";
-    sourceMatchBId = "sf-2";
-  }
-  
+const mapMatchFromDb = (dbMatch: any, allTeams: Team[], dbMatches: any[]): Match => {
+  const friendlyId = getFriendlyIdFromUuid(dbMatch.id);
+  const parts = friendlyId.split("-");
+  const prefix = parts[0];
+  const index = parts.length === 2 ? parseInt(parts[1], 10) : 1;
+  const tableNumber = isNaN(index) ? 1 : index;
+
+  const prevPrefix = getPrevPrefix(prefix);
+  const isFirstRoundMatch = !prevPrefix || !dbMatches.some((dm) => {
+    const fid = getFriendlyIdFromUuid(dm.id);
+    return fid.startsWith(prevPrefix + "-");
+  });
+
+  const teamA = dbMatch.team_a_id === "bye"
+    ? BYE_TEAM
+    : allTeams.find((t) => t.id === dbMatch.team_a_id) || (isFirstRoundMatch && dbMatch.team_a_id === null ? BYE_TEAM : getPlaceholderTeam(friendlyId, "A"));
+
+  const teamB = dbMatch.team_b_id === "bye"
+    ? BYE_TEAM
+    : allTeams.find((t) => t.id === dbMatch.team_b_id) || (isFirstRoundMatch && dbMatch.team_b_id === null ? BYE_TEAM : getPlaceholderTeam(friendlyId, "B"));
+
+  const phase = dbMatch.phase || getPhaseNameFromPrefix(prefix);
   const scoreA = dbMatch.score_a || 0;
   const scoreB = dbMatch.score_b || 0;
   const status = dbMatch.status as Match["status"];
-  
+
   let winnerId: string | undefined = undefined;
   if (status === "COMPLETED") {
     if (scoreA > scoreB) {
       winnerId = teamA.id;
     } else if (scoreB > scoreA) {
       winnerId = teamB.id;
+    } else if (teamA.id === "bye") {
+      winnerId = teamB.id;
+    } else if (teamB.id === "bye") {
+      winnerId = teamA.id;
     }
   }
-  
+
   return {
     id: friendlyId,
     phase,
@@ -109,8 +251,6 @@ const mapMatchFromDb = (dbMatch: any, allTeams: Team[], hasQF: boolean): Match =
     setsA: dbMatch.sets_a || 0,
     setsB: dbMatch.sets_b || 0,
     tableNumber,
-    sourceMatchAId,
-    sourceMatchBId,
     detailedScore: { rounds: [] },
     winnerId,
     completedAt: status === "COMPLETED" ? Date.now() : undefined,
@@ -235,18 +375,30 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         const mappedTeams = (dbTeams || []).map(mapTeamFromDb);
         setTeams(mappedTeams);
 
-        const hasQF = (dbMatches || []).some((m) => {
-          const fid = REVERSE_MATCH_ID_MAP[m.id] || m.id;
-          return fid.startsWith("qf-");
-        });
-
-        const mappedMatches = (dbMatches || []).map((m) =>
-          mapMatchFromDb(m, mappedTeams, hasQF)
+        const rawDbMatches = dbMatches || [];
+        const mappedMatches = rawDbMatches.map((m) =>
+          mapMatchFromDb(m, mappedTeams, rawDbMatches)
         );
         
-        // Sort matches by friendly ID order
-        const sortOrder = ["qf-1", "qf-2", "qf-3", "qf-4", "sf-1", "sf-2", "f-1"];
-        mappedMatches.sort((a, b) => sortOrder.indexOf(a.id) - sortOrder.indexOf(b.id));
+        // Assign sourceMatchAId and sourceMatchBId if the source matches exist in loaded matches
+        const matchIds = new Set(mappedMatches.map((m) => m.id));
+        mappedMatches.forEach((m) => {
+          const parts = m.id.split("-");
+          if (parts.length === 2) {
+            const prefix = parts[0];
+            const index = parseInt(parts[1], 10);
+            const prevPrefix = getPrevPrefix(prefix);
+            if (prevPrefix) {
+              const srcA = `${prevPrefix}-${index * 2 - 1}`;
+              const srcB = `${prevPrefix}-${index * 2}`;
+              if (matchIds.has(srcA)) m.sourceMatchAId = srcA;
+              if (matchIds.has(srcB)) m.sourceMatchBId = srcB;
+            }
+          }
+        });
+
+        // Sort matches dynamically
+        mappedMatches.sort((a, b) => compareMatchIds(a.id, b.id));
         setMatches(mappedMatches);
       } catch (err) {
         console.error("Erro ao carregar dados do Supabase:", err);
@@ -277,9 +429,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
     try {
       const dbMatches = newMatches.map((match) => {
-        const dbId = MATCH_ID_MAP[match.id] || match.id;
-        const teamAId = match.teamA.id.startsWith("placeholder-") ? null : match.teamA.id;
-        const teamBId = match.teamB.id.startsWith("placeholder-") ? null : match.teamB.id;
+        const dbId = getUuidForMatchId(match.id);
+        const teamAId = match.teamA.id.startsWith("placeholder-") || match.teamA.id === "bye" ? null : match.teamA.id;
+        const teamBId = match.teamB.id.startsWith("placeholder-") || match.teamB.id === "bye" ? null : match.teamB.id;
         return {
           id: dbId,
           phase: match.phase,
@@ -407,18 +559,46 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
   const handleDeleteTeam = async (id: string) => {
     const teamToRemove = teams.find((t) => t.id === id);
-    const updated = teams.filter((t) => t.id !== id);
-    saveTeams(updated);
+    if (!teamToRemove) return;
+
+    const hasMatches = matches.some((m) => m.teamA.id === id || m.teamB.id === id);
 
     try {
-      const { error } = await supabase.from("teams").delete().eq("id", id);
-      if (error) throw error;
-    } catch (err) {
-      console.error("Erro ao deletar dupla no Supabase:", err);
-    }
+      if (hasMatches) {
+        // 1. Remove as partidas associadas a essa dupla no Supabase
+        const { error: matchesError } = await supabase
+          .from("matches")
+          .delete()
+          .or(`team_a_id.eq.${id},team_b_id.eq.${id}`);
+        if (matchesError) throw matchesError;
+      }
 
-    if (teamToRemove) {
+      // 2. Agora apaga a dupla com segurança
+      const { error: teamError } = await supabase.from("teams").delete().eq("id", id);
+      if (teamError) throw teamError;
+
+      // 3. Atualiza os estados locais
+      const updatedTeams = teams.filter((t) => t.id !== id);
+      saveTeams(updatedTeams);
+
+      if (hasMatches) {
+        // Limpa completamente a chave de confrontos local e no banco
+        setMatches([]);
+        localStorage.removeItem("sc_matches");
+        await supabase
+          .from("matches")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+
+        addEvent(`Chaveamento resetado devido à exclusão da dupla "${teamToRemove.name}".`, "INFO");
+      }
+
       addEvent(`Inscrição da dupla "${teamToRemove.name}" foi cancelada.`, "INFO");
+    } catch (err: any) {
+      console.error("Erro ao deletar dupla no Supabase:", err);
+      if (typeof window !== "undefined") {
+        window.alert("Não foi possível apagar esta dupla. Tente resetar o chaveamento primeiro.");
+      }
     }
   };
 
@@ -470,9 +650,18 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
   // Generate Bracket Action
   const handleGenerateBracket = (onNavigate?: () => void) => {
-    if (teams.length < 4) return;
+    const confirmedTeams = teams.filter((t) => !t.status || t.status === "CONFIRMED");
+    if (confirmedTeams.length < 2) return;
 
-    const shuffledTeams = [...teams].sort(() => Math.random() - 0.5);
+    const shuffledTeams = [...confirmedTeams].sort(() => Math.random() - 0.5);
+    const N = shuffledTeams.length;
+
+    let P = 2;
+    while (P < N) {
+      P *= 2;
+    }
+
+    const totalRounds = Math.log2(P);
     const generatedMatches: Match[] = [];
 
     const now = new Date();
@@ -486,127 +675,111 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       },
     ];
 
-    if (teams.length >= 8) {
-      const qfTeams = shuffledTeams.slice(0, 8);
+    const matchesMap = new Map<string, Match>();
 
-      for (let i = 0; i < 4; i++) {
-        const teamA = qfTeams[i * 2];
-        const teamB = qfTeams[i * 2 + 1];
-        generatedMatches.push({
-          id: `qf-${i + 1}`,
-          phase: "Quartas de Final",
+    // Generate Round 1 (Round 0)
+    const firstRoundMatchCount = P / 2;
+    const { prefix: firstRoundPrefix, phase: firstRoundPhase } = getRoundInfo(0, totalRounds);
+    const numByes = P - N;
+
+    for (let i = 0; i < firstRoundMatchCount; i++) {
+      const matchIndex = i + 1;
+      const friendlyId = `${firstRoundPrefix}-${matchIndex}`;
+
+      let teamA: Team;
+      let teamB: Team;
+
+      if (i < numByes) {
+        teamA = shuffledTeams[i];
+        teamB = BYE_TEAM;
+      } else {
+        const offset = numByes + (i - numByes) * 2;
+        teamA = shuffledTeams[offset];
+        teamB = shuffledTeams[offset + 1];
+      }
+
+      const isByeMatch = teamA.id === "bye" || teamB.id === "bye";
+
+      const match: Match = {
+        id: friendlyId,
+        phase: firstRoundPhase,
+        status: isByeMatch ? "COMPLETED" : "SCHEDULED",
+        teamA,
+        teamB,
+        scoreA: isByeMatch ? (teamA.id === "bye" ? 0 : 1) : 0,
+        scoreB: isByeMatch ? (teamB.id === "bye" ? 0 : 1) : 0,
+        detailedScore: { rounds: [] },
+        tableNumber: matchIndex,
+        winnerId: isByeMatch ? (teamA.id === "bye" ? teamB.id : teamA.id) : undefined,
+        completedAt: isByeMatch ? Date.now() : undefined,
+        finalScoreA: isByeMatch ? (teamA.id === "bye" ? 0 : 1) : undefined,
+        finalScoreB: isByeMatch ? (teamB.id === "bye" ? 0 : 1) : undefined,
+        finalSetsA: 0,
+        finalSetsB: 0,
+      };
+
+      generatedMatches.push(match);
+      matchesMap.set(friendlyId, match);
+
+      if (isByeMatch) {
+        const winner = teamA.id === "bye" ? teamB : teamA;
+        newEvents.push({
+          id: `evt-bye-${friendlyId}-${Date.now()}`,
+          timestamp: timeStr,
+          description: `Avanço Automático: "${winner.name}" avançou na primeira rodada por Chapéu/Folga.`,
+          type: "INFO",
+        });
+      } else {
+        newEvents.push({
+          id: `evt-init-${friendlyId}-${Date.now()}`,
+          timestamp: timeStr,
+          description: `${firstRoundPhase} - Mesa ${matchIndex}: ${teamA.name} vs ${teamB.name}`,
+          type: "INFO",
+        });
+      }
+    }
+
+    // Generate Subsequent Rounds
+    for (let r = 1; r < totalRounds; r++) {
+      const matchCount = P / Math.pow(2, r + 1);
+      const { prefix: roundPrefix, phase: roundPhase } = getRoundInfo(r, totalRounds);
+      const { prefix: prevRoundPrefix } = getRoundInfo(r - 1, totalRounds);
+
+      for (let i = 0; i < matchCount; i++) {
+        const matchIndex = i + 1;
+        const friendlyId = `${roundPrefix}-${matchIndex}`;
+
+        const sourceMatchAId = `${prevRoundPrefix}-${matchIndex * 2 - 1}`;
+        const sourceMatchBId = `${prevRoundPrefix}-${matchIndex * 2}`;
+
+        const sourceMatchA = matchesMap.get(sourceMatchAId)!;
+        const sourceMatchB = matchesMap.get(sourceMatchBId)!;
+
+        const teamA = sourceMatchA.status === "COMPLETED" && sourceMatchA.winnerId
+          ? (sourceMatchA.winnerId === sourceMatchA.teamA.id ? sourceMatchA.teamA : sourceMatchA.teamB)
+          : getPlaceholderTeam(friendlyId, "A");
+
+        const teamB = sourceMatchB.status === "COMPLETED" && sourceMatchB.winnerId
+          ? (sourceMatchB.winnerId === sourceMatchB.teamA.id ? sourceMatchB.teamA : sourceMatchB.teamB)
+          : getPlaceholderTeam(friendlyId, "B");
+
+        const match: Match = {
+          id: friendlyId,
+          phase: roundPhase,
           status: "SCHEDULED",
           teamA,
           teamB,
           scoreA: 0,
           scoreB: 0,
           detailedScore: { rounds: [] },
-          tableNumber: i + 1,
-        });
-        
-        newEvents.push({
-          id: `evt-qf-${i}-${Date.now()}`,
-          timestamp: timeStr,
-          description: `Quartas de Final - Mesa ${i + 1}: ${teamA.name} vs ${teamB.name}`,
-          type: "INFO",
-        });
+          tableNumber: matchIndex,
+          sourceMatchAId,
+          sourceMatchBId,
+        };
+
+        generatedMatches.push(match);
+        matchesMap.set(friendlyId, match);
       }
-
-      const dummyTeam = (label: string): Team => ({
-        id: `placeholder-${label.toLowerCase().replace(/\s/g, "-")}`,
-        name: label,
-        players: ["A definir", "A definir"],
-        createdAt: "",
-      });
-
-      generatedMatches.push({
-        id: "sf-1",
-        phase: "Semifinal",
-        status: "SCHEDULED",
-        teamA: dummyTeam("Vencedor QF 1"),
-        teamB: dummyTeam("Vencedor QF 2"),
-        scoreA: 0,
-        scoreB: 0,
-        detailedScore: { rounds: [] },
-        tableNumber: 1,
-        sourceMatchAId: "qf-1",
-        sourceMatchBId: "qf-2",
-      });
-
-      generatedMatches.push({
-        id: "sf-2",
-        phase: "Semifinal",
-        status: "SCHEDULED",
-        teamA: dummyTeam("Vencedor QF 3"),
-        teamB: dummyTeam("Vencedor QF 4"),
-        scoreA: 0,
-        scoreB: 0,
-        detailedScore: { rounds: [] },
-        tableNumber: 2,
-        sourceMatchAId: "qf-3",
-        sourceMatchBId: "qf-4",
-      });
-
-      generatedMatches.push({
-        id: "f-1",
-        phase: "Final",
-        status: "SCHEDULED",
-        teamA: dummyTeam("Vencedor SF 1"),
-        teamB: dummyTeam("Vencedor SF 2"),
-        scoreA: 0,
-        scoreB: 0,
-        detailedScore: { rounds: [] },
-        tableNumber: 1,
-        sourceMatchAId: "sf-1",
-        sourceMatchBId: "sf-2",
-      });
-
-    } else {
-      const sfTeams = shuffledTeams.slice(0, 4);
-
-      for (let i = 0; i < 2; i++) {
-        const teamA = sfTeams[i * 2];
-        const teamB = sfTeams[i * 2 + 1];
-        generatedMatches.push({
-          id: `sf-${i + 1}`,
-          phase: "Semifinal",
-          status: "SCHEDULED",
-          teamA,
-          teamB,
-          scoreA: 0,
-          scoreB: 0,
-          detailedScore: { rounds: [] },
-          tableNumber: i + 1,
-        });
-
-        newEvents.push({
-          id: `evt-sf-${i}-${Date.now()}`,
-          timestamp: timeStr,
-          description: `Semifinal - Mesa ${i + 1}: ${teamA.name} vs ${teamB.name}`,
-          type: "INFO",
-        });
-      }
-
-      const dummyTeam = (label: string): Team => ({
-        id: `placeholder-${label.toLowerCase().replace(/\s/g, "-")}`,
-        name: label,
-        players: ["A definir", "A definir"],
-        createdAt: "",
-      });
-
-      generatedMatches.push({
-        id: "f-1",
-        phase: "Final",
-        status: "SCHEDULED",
-        teamA: dummyTeam("Vencedor SF 1"),
-        teamB: dummyTeam("Vencedor SF 2"),
-        scoreA: 0,
-        scoreB: 0,
-        detailedScore: { rounds: [] },
-        tableNumber: 1,
-        sourceMatchAId: "sf-1",
-        sourceMatchBId: "sf-2",
-      });
     }
 
     const syncBracket = async () => {
@@ -759,7 +932,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const match = matches.find((m) => m.id === matchId);
     if (!match) return;
 
-    if (match.teamA.id.startsWith("placeholder-") || match.teamB.id.startsWith("placeholder-")) {
+    if (match.teamA.id.startsWith("placeholder-") || match.teamB.id.startsWith("placeholder-") ||
+        match.teamA.id === "bye" || match.teamB.id === "bye") {
       return;
     }
 

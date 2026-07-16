@@ -352,7 +352,7 @@ export default function TeamRegistration({
                 <Trophy className="h-5 w-5 text-brand-neon" />
                 <span>Duplas Inscritas ({teams.length})</span>
               </h2>
-              {teams.length >= 4 && (
+              {teams.length >= 2 && (
                 <button
                   onClick={onGenerateBracket}
                   className="flex items-center gap-2 bg-gradient-to-r from-brand-neon to-brand-neon-orange hover:from-brand-neon-hover hover:to-brand-neon-orange/95 text-neutral-950 px-5 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all transform hover:scale-[1.03] active:scale-95 shadow-lg shadow-brand-neon/10 cursor-pointer"
@@ -424,12 +424,12 @@ export default function TeamRegistration({
                   ))}
                 </div>
 
-                {teams.length < 4 && (
+                {teams.length < 2 && (
                  <div className="mt-6 flex items-start gap-2.5 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-brand-border text-xs text-neutral-500 dark:text-brand-text-muted">
                     <HelpCircle className="h-4 w-4 text-brand-electric-light shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold text-neutral-800 dark:text-white block mb-0.5">Mínimo de 4 Duplas Requerido</span>
-                      Adicione pelo menos 4 duplas para habilitar a geração do chaveamento mata-mata clássico. Recomendamos 4 ou 8 duplas para melhor fluxo do campeonato.
+                      <span className="font-bold text-neutral-800 dark:text-white block mb-0.5">Mínimo de 2 Duplas Requerido</span>
+                      Adicione pelo menos 2 duplas para habilitar a geração do chaveamento mata-mata. O sistema se adaptará automaticamente a qualquer número de inscritos.
                     </div>
                   </div>
                 )}

@@ -101,12 +101,14 @@ export default function TournamentBracket({
     setEditingMatch(null);
   };
 
-  const hasQF = matches.some((m) => m.phase.toLowerCase() === "quartas de final");
   const hasMatches = matches.length > 0;
 
-  const winnersPhases = hasQF
-    ? ["Quartas de Final", "Semifinal", "Final"]
-    : ["Semifinal", "Final"];
+  const phaseCounts: Record<string, number> = {};
+  matches.forEach((m) => {
+    phaseCounts[m.phase] = (phaseCounts[m.phase] || 0) + 1;
+  });
+  const winnersPhases = Object.keys(phaseCounts).sort((a, b) => phaseCounts[b] - phaseCounts[a]);
+  const hasQF = matches.some((m) => m.phase.toLowerCase() === "quartas de final");
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -290,12 +292,12 @@ export default function TournamentBracket({
 
                           {/* Team A Card row */}
                           <div
-                            draggable={editMode}
+                            draggable={editMode && m.teamA.id !== "bye"}
                             onDragStart={(e) => handleDragStart(e, m.id, "A")}
-                            onDragOver={(e) => editMode && e.preventDefault()}
-                            onDrop={(e) => editMode && handleDrop(e, m.id, "A")}
-                            onClick={() => editMode && setActiveDropdownSlot({ matchId: m.id, slot: "A" })}
-                            className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg transition-all ${editMode
+                            onDragOver={(e) => editMode && m.teamA.id !== "bye" && e.preventDefault()}
+                            onDrop={(e) => editMode && m.teamA.id !== "bye" && handleDrop(e, m.id, "A")}
+                            onClick={() => editMode && m.teamA.id !== "bye" && setActiveDropdownSlot({ matchId: m.id, slot: "A" })}
+                            className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg transition-all ${editMode && m.teamA.id !== "bye"
                                 ? "cursor-grab active:cursor-grabbing hover:bg-brand-electric/10 border border-dashed border-transparent hover:border-brand-electric/30"
                                 : ""
                               } ${isCompleted && m.winnerId === m.teamA.id
@@ -305,8 +307,8 @@ export default function TournamentBracket({
                                   : "text-stone-800 dark:text-white"
                               }`}
                           >
-                            <span className="truncate max-w-[120px]" title={m.teamA.name}>
-                              {m.teamA.name}
+                            <span className={`truncate max-w-[120px] ${m.teamA.id === "bye" ? "italic text-neutral-400 dark:text-neutral-500 font-normal" : ""}`} title={m.teamA.id === "bye" ? "Avanço Direto" : m.teamA.name}>
+                              {m.teamA.id === "bye" ? "Avanço Direto" : m.teamA.name}
                             </span>
                             <span className="font-display font-black text-sm flex items-center gap-0.5">
                               {showSets ? (
@@ -325,12 +327,12 @@ export default function TournamentBracket({
 
                           {/* Team B Card row */}
                           <div
-                            draggable={editMode}
+                            draggable={editMode && m.teamB.id !== "bye"}
                             onDragStart={(e) => handleDragStart(e, m.id, "B")}
-                            onDragOver={(e) => editMode && e.preventDefault()}
-                            onDrop={(e) => editMode && handleDrop(e, m.id, "B")}
-                            onClick={() => editMode && setActiveDropdownSlot({ matchId: m.id, slot: "B" })}
-                            className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg transition-all ${editMode
+                            onDragOver={(e) => editMode && m.teamB.id !== "bye" && e.preventDefault()}
+                            onDrop={(e) => editMode && m.teamB.id !== "bye" && handleDrop(e, m.id, "B")}
+                            onClick={() => editMode && m.teamB.id !== "bye" && setActiveDropdownSlot({ matchId: m.id, slot: "B" })}
+                            className={`flex items-center justify-between text-xs py-1.5 px-2 rounded-lg transition-all ${editMode && m.teamB.id !== "bye"
                                 ? "cursor-grab active:cursor-grabbing hover:bg-brand-neon-orange/10 border border-dashed border-transparent hover:border-brand-neon-orange/30"
                                 : ""
                               } ${isCompleted && m.winnerId === m.teamB.id
@@ -340,8 +342,8 @@ export default function TournamentBracket({
                                   : "text-stone-800 dark:text-white"
                               }`}
                           >
-                            <span className="truncate max-w-[120px]" title={m.teamB.name}>
-                              {m.teamB.name}
+                            <span className={`truncate max-w-[120px] ${m.teamB.id === "bye" ? "italic text-neutral-400 dark:text-neutral-500 font-normal" : ""}`} title={m.teamB.id === "bye" ? "Avanço Direto" : m.teamB.name}>
+                              {m.teamB.id === "bye" ? "Avanço Direto" : m.teamB.name}
                             </span>
                             <span className="font-display font-black text-sm flex items-center gap-0.5">
                               {showSets ? (
@@ -356,33 +358,29 @@ export default function TournamentBracket({
                           </div>
 
                           {/* Connector lines inside Winners Bracket */}
-                          {phase.toLowerCase() === "quartas de final" && (
-                            <>
-                              <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
-                              {(m.id === "qf-1" || m.id === "qf-3") && (
-                                <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[80px] bg-[#c4b59d] dark:bg-brand-border/40" />
-                              )}
-                              {(m.id === "qf-2" || m.id === "qf-4") && (
-                                <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[80px] bg-[#c4b59d] dark:bg-brand-border/40" />
-                              )}
-                            </>
+                          {phase.toLowerCase() !== "final" && (
+                            <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
                           )}
-
-                          {phase.toLowerCase() === "semifinal" && (
-                            <>
-                              <div className="absolute top-1/2 right-[-16px] md:right-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
-                              <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
-                              {m.id.includes("sf-1") && (
-                                <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[140px] bg-[#c4b59d] dark:bg-brand-border/40" />
-                              )}
-                              {m.id.includes("sf-2") && (
-                                <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] h-[140px] bg-[#c4b59d] dark:bg-brand-border/40" />
-                              )}
-                            </>
-                          )}
-
-                          {phase.toLowerCase() === "final" && (
+                          {m.sourceMatchAId && m.sourceMatchBId && (
                             <div className="absolute top-1/2 left-[-16px] md:left-[-32px] w-[16px] md:w-[32px] h-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40 -translate-y-1/2" />
+                          )}
+                          {phase.toLowerCase() !== "final" && m.tableNumber % 2 === 1 && (
+                            <div className="absolute top-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40" style={{ height: (() => {
+                              const p = phase.toLowerCase();
+                              if (p === "semifinal") return "140px";
+                              if (p === "quartas de final") return "80px";
+                              if (p === "oitavas de final") return "40px";
+                              return "20px";
+                            })() }} />
+                          )}
+                          {phase.toLowerCase() !== "final" && m.tableNumber % 2 === 0 && (
+                            <div className="absolute bottom-1/2 left-[calc(100%+16px)] md:left-[calc(100%+32px)] w-[1.5px] bg-[#c4b59d] dark:bg-brand-border/40" style={{ height: (() => {
+                              const p = phase.toLowerCase();
+                              if (p === "semifinal") return "140px";
+                              if (p === "quartas de final") return "80px";
+                              if (p === "oitavas de final") return "40px";
+                              return "20px";
+                            })() }} />
                           )}
                         </div>
                       );
