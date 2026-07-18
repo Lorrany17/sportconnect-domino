@@ -358,7 +358,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isAuthLoaded, setIsAuthLoaded] = useState<boolean>(false);
 
-  // Load state from Supabase on mount
+  // Load state from Supabase on mount and subscribe to realtime updates
   useEffect(() => {
     const loadFromSupabase = async () => {
       try {
@@ -409,10 +409,35 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
     loadFromSupabase();
 
+    // Subscribe to realtime database changes on matches and teams
+    const channel = supabase
+      .channel("public:realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "matches" },
+        (payload) => {
+          console.log("Mudança recebida em tempo real nas partidas:", payload);
+          loadFromSupabase();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "teams" },
+        (payload) => {
+          console.log("Mudança recebida em tempo real nas equipes:", payload);
+          loadFromSupabase();
+        }
+      )
+      .subscribe();
+
     const savedEvents = localStorage.getItem("sc_events");
     const savedAuth = localStorage.getItem("sc_admin_auth");
     if (savedEvents) setEvents(JSON.parse(savedEvents));
     if (savedAuth === "true") setIsAdmin(true);
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Sync state helpers
