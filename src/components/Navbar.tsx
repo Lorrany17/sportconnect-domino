@@ -34,24 +34,87 @@ export default function Navbar({
     { id: "bracket", name: "Árvore de Confrontos", icon: Network },
   ];
 
+  const themeToggleBtn = (
+    <button
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      className="p-2 rounded-xl bg-[#f2ece0] hover:bg-[#d8ccb4]/40 dark:bg-neutral-900/60 dark:hover:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border text-[#3b342e] dark:text-neutral-300 transition-all cursor-pointer hover:text-brand-electric dark:hover:text-brand-neon active:scale-95 flex items-center justify-center shrink-0"
+      title="Alternar Tema"
+    >
+      {!mounted ? (
+        <div className="h-4 w-4" />
+      ) : resolvedTheme === "dark" ? (
+        <Sun className="h-4 w-4" />
+      ) : (
+        <Moon className="h-4 w-4" />
+      )}
+    </button>
+  );
+
+  const adminActions = isAdminLayout ? (
+    <button
+      onClick={logout}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/10 border border-red-500/20 hover:bg-red-600/20 text-xs font-bold text-red-500 hover:text-red-400 transition-all cursor-pointer shrink-0"
+    >
+      <LogOut className="h-3.5 w-3.5" />
+      <span>Sair</span>
+    </button>
+  ) : (
+    <>
+      {isAdmin ? (
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Link
+            href="/admin"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-electric text-xs font-bold text-white hover:bg-brand-electric/80 transition-all cursor-pointer shadow-lg shadow-brand-electric/20"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Painel Admin</span>
+          </Link>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f2ece0] dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border hover:bg-[#d8ccb4]/40 dark:hover:bg-neutral-700 text-xs font-bold text-stone-600 hover:text-[#3b342e] dark:text-brand-text-muted dark:hover:text-white transition-all cursor-pointer"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>Sair</span>
+          </button>
+        </div>
+      ) : (
+        <Link
+          href="/admin"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-electric text-xs font-bold text-white hover:bg-brand-electric/85 transition-all cursor-pointer shadow-lg shadow-brand-electric/25 shrink-0"
+        >
+          <LogIn className="h-3.5 w-3.5" />
+          <span>Acessar Painel</span>
+        </Link>
+      )}
+    </>
+  );
+
   return (
-    <header className="w-full py-3 border-b border-[#d8ccb4] dark:border-neutral-800 sticky top-0 z-40 bg-[#f2ece0] dark:bg-[#0a0a0a]">
+    <header className="w-full border-b border-[#d8ccb4] dark:border-neutral-800 sticky top-0 z-40 bg-[#f2ece0] dark:bg-[#0a0a0a]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-20 items-center justify-between">
-          {/* Logo Brand */}
-          <div className="flex items-center gap-3">
-            <Image
-              src="/logo.png"
-              alt="SportConnect Logo"
-              width={120}
-              height={40}
-              className="w-auto h-8 object-contain"
-              priority
-            />
-            <div>
-              <div className="text-[10px] font-semibold text-brand-text-muted tracking-widest uppercase">
-                Torneio de Dominó
+        <div className="flex flex-col md:flex-row md:h-20 items-center justify-between py-3 md:py-0 gap-3 md:gap-4">
+          {/* Logo Brand (Left side) */}
+          <div className="flex items-center justify-between w-full md:w-auto gap-4">
+            <div className="flex items-center gap-2.5">
+              <Image
+                src="/logo.png"
+                alt="SportConnect Logo"
+                width={120}
+                height={40}
+                className="w-auto h-7 sm:h-8 object-contain"
+                priority
+              />
+              <div>
+                <div className="text-[9px] sm:text-[10px] font-semibold text-brand-text-muted tracking-widest uppercase">
+                  Torneio de Dominó
+                </div>
               </div>
+            </div>
+
+            {/* Mobile Actions (Theme Toggle & Login/Admin buttons) */}
+            <div className="flex md:hidden items-center gap-2">
+              {themeToggleBtn}
+              {adminActions}
             </div>
           </div>
 
@@ -78,78 +141,32 @@ export default function Navbar({
             </nav>
           )}
 
-          {/* Quick Info Badges & Admin Actions */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-lg bg-[#d8ccb4]/20 dark:bg-neutral-900/80 border border-[#d8ccb4] dark:border-brand-border px-3 py-1.5 text-xs">
-              <Users className="h-3.5 w-3.5 text-brand-electric-light" />
-              <span className="font-bold text-stone-500 dark:text-brand-text-muted">
-                Duplas: <span className="text-[#3b342e] dark:text-brand-text font-black">{teamCount}</span>
-              </span>
-            </div>
-
-            {activeMatchCount > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-brand-neon-orange/10 border border-brand-neon-orange/20 px-3 py-1.5 text-xs animate-pulse-slow">
-                <Radio className="h-3.5 w-3.5 text-brand-neon" />
-                <span className="font-bold text-brand-neon">
-                  Ao Vivo: <span className="text-white font-black">{activeMatchCount}</span>
+          {/* Badges & Actions Container */}
+          <div className="flex flex-wrap items-center justify-center md:justify-end gap-2.5 sm:gap-3 w-full md:w-auto">
+            {/* Quick Info Badges */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-lg bg-[#d8ccb4]/20 dark:bg-neutral-900/80 border border-[#d8ccb4] dark:border-brand-border px-2 py-1 md:px-3 md:py-1.5 text-xs">
+                <Users className="h-3.5 w-3.5 text-brand-electric-light" />
+                <span className="font-bold text-stone-500 dark:text-brand-text-muted text-[10px] sm:text-xs">
+                  Duplas: <span className="text-[#3b342e] dark:text-brand-text font-black">{teamCount}</span>
                 </span>
               </div>
-            )}
 
-            {/* Theme Toggle Button */}
-            <button
-              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="p-2 rounded-xl bg-[#f2ece0] hover:bg-[#d8ccb4]/40 dark:bg-neutral-900/60 dark:hover:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border text-[#3b342e] dark:text-neutral-300 transition-all cursor-pointer hover:text-brand-electric dark:hover:text-brand-neon active:scale-95 flex items-center justify-center"
-              title="Alternar Tema"
-            >
-              {!mounted ? (
-                <div className="h-4 w-4" />
-              ) : resolvedTheme === "dark" ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
+              {activeMatchCount > 0 && (
+                <div className="flex items-center gap-1.5 rounded-lg bg-brand-neon-orange/10 border border-brand-neon-orange/20 px-2 py-1 md:px-3 md:py-1.5 text-xs animate-pulse-slow">
+                  <Radio className="h-3.5 w-3.5 text-brand-neon" />
+                  <span className="font-bold text-brand-neon text-[10px] sm:text-xs">
+                    Ao Vivo: <span className="text-white font-black">{activeMatchCount}</span>
+                  </span>
+                </div>
               )}
-            </button>
+            </div>
 
-            {/* Admin Layout Buttons */}
-            {isAdminLayout ? (
-              <button
-                onClick={logout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/10 border border-red-500/20 hover:bg-red-600/20 text-xs font-bold text-red-500 hover:text-red-400 transition-all cursor-pointer"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span>Sair</span>
-              </button>
-            ) : (
-              <>
-                {isAdmin ? (
-                  <>
-                    <Link
-                      href="/admin"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-electric text-xs font-bold text-white hover:bg-brand-electric/80 transition-all cursor-pointer shadow-lg shadow-brand-electric/20"
-                    >
-                      <LayoutDashboard className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Painel Admin</span>
-                    </Link>
-                    <button
-                      onClick={logout}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f2ece0] dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border hover:bg-[#d8ccb4]/40 dark:hover:bg-neutral-700 text-xs font-bold text-stone-600 hover:text-[#3b342e] dark:text-brand-text-muted dark:hover:text-white transition-all cursor-pointer"
-                    >
-                      <LogOut className="h-3.5 w-3.5" />
-                      <span>Sair</span>
-                    </button>
-                  </>
-                ) : (
-                  <Link
-                    href="/admin"
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-electric text-xs font-bold text-white hover:bg-brand-electric/85 transition-all cursor-pointer shadow-lg shadow-brand-electric/25"
-                  >
-                    <LogIn className="h-3.5 w-3.5" />
-                    <span>Acessar Painel</span>
-                  </Link>
-                )}
-              </>
-            )}
+            {/* Desktop Actions */}
+            <div className="hidden md:flex items-center gap-3">
+              {themeToggleBtn}
+              {adminActions}
+            </div>
           </div>
         </div>
 
