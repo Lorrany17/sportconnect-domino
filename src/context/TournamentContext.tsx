@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Team, Match, Round, TournamentEvent } from "@/types";
+import { Team, Match, Round, TournamentEvent, Tournament } from "@/types";
 import { supabase } from "@/lib/supabase";
 
 const MATCH_ID_MAP: Record<string, string> = {
@@ -196,9 +196,10 @@ const mapTeamFromDb = (dbTeam: any): Team => ({
   id: dbTeam.id,
   name: dbTeam.name,
   players: [dbTeam.player1, dbTeam.player2],
-  createdAt: new Date().toISOString(),
+  createdAt: dbTeam.created_at || new Date().toISOString(),
   source: "manual",
   status: dbTeam.status,
+  tournamentId: dbTeam.tournament_id,
 });
 
 const mapMatchFromDb = (dbMatch: any, allTeams: Team[], dbMatches: any[]): Match => {
@@ -258,6 +259,7 @@ const mapMatchFromDb = (dbMatch: any, allTeams: Team[], dbMatches: any[]): Match
     finalScoreB: status === "COMPLETED" ? scoreB : undefined,
     finalSetsA: status === "COMPLETED" ? dbMatch.sets_a || 0 : undefined,
     finalSetsB: status === "COMPLETED" ? dbMatch.sets_b || 0 : undefined,
+    tournamentId: dbMatch.tournament_id,
   };
 };
 
@@ -326,6 +328,13 @@ const MOCK_TEAMS_8: Team[] = [
 ];
 
 interface TournamentContextType {
+  tournaments: Tournament[];
+  currentTournamentId: string | null;
+  setCurrentTournamentId: (id: string | null) => void;
+  isReadOnly: boolean;
+  handleCreateTournament: (name: string) => Promise<void>;
+  handleFinishTournament: (id: string) => Promise<void>;
+  handleDeleteTournament: (id: string) => Promise<void>;
   teams: Team[];
   matches: Match[];
   events: TournamentEvent[];
@@ -352,93 +361,175 @@ interface TournamentContextType {
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [currentTournamentId, setCurrentTournamentId] = useState<string | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [events, setEvents] = useState<TournamentEvent[]>([]);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isAuthLoaded, setIsAuthLoaded] = useState<boolean>(false);
 
-  // Load state from Supabase on mount and subscribe to realtime updates
-  useEffect(() => {
-    const loadFromSupabase = async () => {
-      try {
-        const { data: dbTeams, error: teamsError } = await supabase
-          .from("teams")
-          .select("*");
-        if (teamsError) throw teamsError;
+  const currentTournament = tournaments.find((t) => t.id === currentTournamentId);
+  const isReadOnly = currentTournament?.status === "FINALIZADO";
 
-        const { data: dbMatches, error: matchesError } = await supabase
-          .from("matches")
-          .select("*");
-        if (matchesError) throw matchesError;
+  const loadTournaments = async () => {
+    try {
+      const { data: dbTournaments, error } = await supabase
+        .from("tournaments")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      
+      const mappedTournaments: Tournament[] = (dbTournaments || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        status: t.status as "ATIVO" | "FINALIZADO",
+        createdAt: t.created_at
+      }));
 
-        const mappedTeams = (dbTeams || []).map(mapTeamFromDb);
-        setTeams(mappedTeams);
+      setTournaments(mappedTournaments);
 
-        const rawDbMatches = dbMatches || [];
-        const mappedMatches = rawDbMatches.map((m) =>
-          mapMatchFromDb(m, mappedTeams, rawDbMatches)
-        );
+      if (mappedTournaments.length > 0) {
+        let selectedId = localStorage.getItem("sc_current_tournament_id");
+        if (!selectedId || !mappedTournaments.some((t) => t.id === selectedId)) {
+          selectedId = mappedTournaments[0].id;
+          localStorage.setItem("sc_current_tournament_id", selectedId);
+        }
+        setCurrentTournamentId(selectedId);
+      } else {
+        const defaultId = generateUUID();
+        const { data: newTour, error: insertError } = await supabase
+          .from("tournaments")
+          .insert({ id: defaultId, name: "Torneio Principal", status: "ATIVO" })
+          .select()
+          .single();
         
-        // Assign sourceMatchAId and sourceMatchBId if the source matches exist in loaded matches
-        const matchIds = new Set(mappedMatches.map((m) => m.id));
-        mappedMatches.forEach((m) => {
-          const parts = m.id.split("-");
-          if (parts.length === 2) {
-            const prefix = parts[0];
-            const index = parseInt(parts[1], 10);
-            const prevPrefix = getPrevPrefix(prefix);
-            if (prevPrefix) {
-              const srcA = `${prevPrefix}-${index * 2 - 1}`;
-              const srcB = `${prevPrefix}-${index * 2}`;
-              if (matchIds.has(srcA)) m.sourceMatchAId = srcA;
-              if (matchIds.has(srcB)) m.sourceMatchBId = srcB;
-            }
-          }
-        });
-
-        // Sort matches dynamically
-        mappedMatches.sort((a, b) => compareMatchIds(a.id, b.id));
-        setMatches(mappedMatches);
-      } catch (err) {
-        console.error("Erro ao carregar dados do Supabase:", err);
-      } finally {
-        setIsAuthLoaded(true);
+        if (!insertError && newTour) {
+          const mappedDefault: Tournament = {
+            id: newTour.id,
+            name: newTour.name,
+            status: newTour.status as "ATIVO" | "FINALIZADO",
+            createdAt: newTour.created_at
+          };
+          setTournaments([mappedDefault]);
+          setCurrentTournamentId(defaultId);
+          localStorage.setItem("sc_current_tournament_id", defaultId);
+        }
       }
+    } catch (err) {
+      console.error("Erro ao carregar torneios:", err);
+    }
+  };
+
+  const loadTeamsAndMatches = async (tournamentId: string) => {
+    if (!tournamentId) return;
+    try {
+      const { data: dbTeams, error: teamsError } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("tournament_id", tournamentId);
+      if (teamsError) throw teamsError;
+
+      const { data: dbMatches, error: matchesError } = await supabase
+        .from("matches")
+        .select("*")
+        .eq("tournament_id", tournamentId);
+      if (matchesError) throw matchesError;
+
+      const mappedTeams = (dbTeams || []).map(mapTeamFromDb);
+      setTeams(mappedTeams);
+
+      const rawDbMatches = dbMatches || [];
+      const mappedMatches = rawDbMatches.map((m) =>
+        mapMatchFromDb(m, mappedTeams, rawDbMatches)
+      );
+      
+      const matchIds = new Set(mappedMatches.map((m) => m.id));
+      mappedMatches.forEach((m) => {
+        const parts = m.id.split("-");
+        if (parts.length === 2) {
+          const prefix = parts[0];
+          const index = parseInt(parts[1], 10);
+          const prevPrefix = getPrevPrefix(prefix);
+          if (prevPrefix) {
+            const srcA = `${prevPrefix}-${index * 2 - 1}`;
+            const srcB = `${prevPrefix}-${index * 2}`;
+            if (matchIds.has(srcA)) m.sourceMatchAId = srcA;
+            if (matchIds.has(srcB)) m.sourceMatchBId = srcB;
+          }
+        }
+      });
+
+      mappedMatches.sort((a, b) => compareMatchIds(a.id, b.id));
+      setMatches(mappedMatches);
+    } catch (err) {
+      console.error("Erro ao carregar dados do Supabase:", err);
+    } finally {
+      setIsAuthLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      await loadTournaments();
+      setIsAuthLoaded(true);
     };
-
-    loadFromSupabase();
-
-    // Subscribe to realtime database changes on matches and teams
-    const channel = supabase
-      .channel("public:realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "matches" },
-        (payload) => {
-          console.log("Mudança recebida em tempo real nas partidas:", payload);
-          loadFromSupabase();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "teams" },
-        (payload) => {
-          console.log("Mudança recebida em tempo real nas equipes:", payload);
-          loadFromSupabase();
-        }
-      )
-      .subscribe();
+    init();
 
     const savedEvents = localStorage.getItem("sc_events");
     const savedAuth = localStorage.getItem("sc_admin_auth");
     if (savedEvents) setEvents(JSON.parse(savedEvents));
     if (savedAuth === "true") setIsAdmin(true);
+  }, []);
+
+  useEffect(() => {
+    if (!currentTournamentId) return;
+
+    loadTeamsAndMatches(currentTournamentId);
+
+    const channel = supabase
+      .channel(`public:realtime:${currentTournamentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "matches",
+          filter: `tournament_id=eq.${currentTournamentId}`
+        },
+        (payload) => {
+          console.log("Mudança recebida em tempo real nas partidas:", payload);
+          loadTeamsAndMatches(currentTournamentId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "teams",
+          filter: `tournament_id=eq.${currentTournamentId}`
+        },
+        (payload) => {
+          console.log("Mudança recebida em tempo real nas equipes:", payload);
+          loadTeamsAndMatches(currentTournamentId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tournaments" },
+        (payload) => {
+          console.log("Mudança recebida em tempo real nos torneios:", payload);
+          loadTournaments();
+        }
+      )
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentTournamentId]);
 
   // Sync state helpers
   const saveTeams = (newTeams: Team[]) => {
@@ -447,6 +538,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   };
 
   const saveMatches = async (newMatches: Match[]) => {
+    if (!currentTournamentId) return;
     setMatches(newMatches);
     localStorage.setItem("sc_matches", JSON.stringify(newMatches));
     
@@ -466,12 +558,16 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           score_b: match.scoreB,
           sets_a: match.setsA || 0,
           sets_b: match.setsB || 0,
-          status: match.status
+          status: match.status,
+          tournament_id: currentTournamentId,
         };
       });
 
       const { error } = await supabase.from("matches").upsert(dbMatches);
-      if (error) throw error;
+      if (error) {
+        console.error("Detalhes do erro do Supabase ao salvar partidas:", error.message, error.details, error.hint);
+        throw error;
+      }
     } catch (err) {
       console.error("Erro ao salvar partidas no Supabase:", err);
     }
@@ -517,12 +613,14 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
   // Team Actions
   const handleAddTeam = async (name: string, p1: string, p2: string) => {
+    if (!currentTournamentId) return;
     const newTeam: Team = {
       id: generateUUID(),
       name,
       players: [p1, p2],
       createdAt: new Date().toISOString(),
       source: "manual",
+      tournamentId: currentTournamentId || undefined,
     };
     const updated = [...teams, newTeam];
     saveTeams(updated);
@@ -533,9 +631,13 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         name: newTeam.name,
         player1: p1,
         player2: p2,
-        status: "CONFIRMED"
+        status: "CONFIRMED",
+        tournament_id: currentTournamentId,
       });
-      if (error) throw error;
+      if (error) {
+        console.error("Detalhes do erro do Supabase ao adicionar dupla:", error.message, error.details, error.hint);
+        throw error;
+      }
     } catch (err) {
       console.error("Erro ao adicionar dupla no Supabase:", err);
     }
@@ -544,6 +646,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   };
 
   const handleImportTeams = async (importedTeams: Team[]) => {
+    if (!currentTournamentId) return;
     const existingIds = new Set(teams.map((t) => t.id));
     const newTeams = importedTeams
       .filter((t) => !existingIds.has(t.id))
@@ -564,10 +667,14 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           name: team.name,
           player1: team.players[0],
           player2: team.players[1],
-          status: "CONFIRMED"
+          status: "CONFIRMED",
+          tournament_id: currentTournamentId,
         }));
         const { error } = await supabase.from("teams").insert(dbTeams);
-        if (error) throw error;
+        if (error) {
+          console.error("Detalhes do erro do Supabase ao importar duplas:", error.message, error.details, error.hint);
+          throw error;
+        }
       } catch (err) {
         console.error("Erro ao importar duplas no Supabase:", err);
       }
@@ -628,6 +735,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   };
 
   const handleLoadMockTeams = async (count: number) => {
+    if (!currentTournamentId) return;
     const mockToLoad = count === 8 ? MOCK_TEAMS_8 : MOCK_TEAMS_4;
     
     const mockWithUuids = mockToLoad.map((t) => ({
@@ -636,19 +744,23 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }));
 
     try {
-      await supabase.from("matches").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      await supabase.from("teams").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await supabase.from("matches").delete().eq("tournament_id", currentTournamentId);
+      await supabase.from("teams").delete().eq("tournament_id", currentTournamentId);
 
       const dbTeams = mockWithUuids.map((t) => ({
         id: t.id,
         name: t.name,
         player1: t.players[0],
         player2: t.players[1],
-        status: "CONFIRMED"
+        status: "CONFIRMED",
+        tournament_id: currentTournamentId,
       }));
 
       const { error } = await supabase.from("teams").insert(dbTeams);
-      if (error) throw error;
+      if (error) {
+        console.error("Detalhes do erro do Supabase ao carregar duplas de demonstração:", error.message, error.details, error.hint);
+        throw error;
+      }
     } catch (err) {
       console.error("Erro ao carregar duplas de demonstração no Supabase:", err);
     }
@@ -675,6 +787,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
   // Generate Bracket Action
   const handleGenerateBracket = (onNavigate?: () => void) => {
+    if (!currentTournamentId) return;
     const confirmedTeams = teams.filter((t) => !t.status || t.status === "CONFIRMED");
     if (confirmedTeams.length < 2) return;
 
@@ -809,7 +922,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
     const syncBracket = async () => {
       try {
-        await supabase.from("matches").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("matches").delete().eq("tournament_id", currentTournamentId);
       } catch (err) {
         console.error("Erro ao deletar partidas antigas no chaveamento:", err);
       }
@@ -1270,9 +1383,79 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     saveMatches(updatedMatches);
   };
 
+  const handleCreateTournament = async (name: string) => {
+    const newTourId = generateUUID();
+    const createdAt = new Date().toISOString();
+    const { error } = await supabase.from("tournaments").insert({
+      id: newTourId,
+      name,
+      status: "ATIVO"
+    });
+    if (error) {
+      console.error("Erro ao criar torneio:", error);
+      throw error;
+    }
+    const newTour: Tournament = {
+      id: newTourId,
+      name,
+      status: "ATIVO" as const,
+      createdAt
+    };
+    setTournaments((prev) => [newTour, ...prev]);
+    setCurrentTournamentId(newTourId);
+    localStorage.setItem("sc_current_tournament_id", newTourId);
+  };
+
+  const handleFinishTournament = async (id: string) => {
+    const { error } = await supabase
+      .from("tournaments")
+      .update({ status: "FINALIZADO" })
+      .eq("id", id);
+    if (error) {
+      console.error("Erro ao finalizar torneio:", error);
+      throw error;
+    }
+    setTournaments((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status: "FINALIZADO" as const } : t))
+    );
+  };
+
+  const handleDeleteTournament = async (id: string) => {
+    const { error } = await supabase
+      .from("tournaments")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("Erro ao deletar torneio:", error);
+      throw error;
+    }
+    
+    const remaining = tournaments.filter((t) => t.id !== id);
+    setTournaments(remaining);
+
+    if (remaining.length === 0) {
+      setCurrentTournamentId(null);
+      localStorage.removeItem("sc_current_tournament_id");
+      setTeams([]);
+      setMatches([]);
+      setEvents([]);
+    } else if (currentTournamentId === id) {
+      const nextId = remaining[0].id;
+      setCurrentTournamentId(nextId);
+      localStorage.setItem("sc_current_tournament_id", nextId);
+    }
+  };
+
   return (
     <TournamentContext.Provider
       value={{
+        tournaments,
+        currentTournamentId,
+        setCurrentTournamentId,
+        isReadOnly,
+        handleCreateTournament,
+        handleFinishTournament,
+        handleDeleteTournament,
         teams,
         matches,
         events,

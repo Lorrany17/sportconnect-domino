@@ -2,7 +2,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Users, ClipboardList, Network, Radio, LogIn, LogOut, LayoutDashboard, Sun, Moon } from "lucide-react";
+import { Users, ClipboardList, Network, Radio, LogIn, LogOut, LayoutDashboard, Sun, Moon, X } from "lucide-react";
 import { useTournament } from "@/context/TournamentContext";
 import { useTheme } from "next-themes";
 
@@ -17,13 +17,65 @@ export default function Navbar({
   setActiveTab,
   isAdminLayout = false,
 }: NavbarProps) {
-  const { teams, matches, isAdmin, logout } = useTournament();
+  const { 
+    teams, 
+    matches, 
+    isAdmin, 
+    logout,
+    tournaments,
+    currentTournamentId,
+    setCurrentTournamentId,
+    handleCreateTournament
+  } = useTournament();
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
+
+  const [showNewTournamentModal, setShowNewTournamentModal] = React.useState(false);
+  const [newTournamentName, setNewTournamentName] = React.useState("");
+  const [isCreating, setIsCreating] = React.useState(false);
+
+  const currentTournament = tournaments.find((t) => t.id === currentTournamentId);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTournamentName.trim()) return;
+    setIsCreating(true);
+    try {
+      await handleCreateTournament(newTournamentName.trim());
+      setNewTournamentName("");
+      setShowNewTournamentModal(false);
+    } catch (err) {
+      alert("Erro ao criar torneio");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  const tournamentSelect = isAdminLayout && (
+    <div className="flex items-center gap-2 shrink-0">
+      <select
+        value={currentTournamentId || ""}
+        onChange={(e) => setCurrentTournamentId(e.target.value)}
+        className="px-3 py-1.5 rounded-lg bg-[#f2ece0] dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border text-xs font-bold text-[#3b342e] dark:text-white outline-none cursor-pointer focus:border-brand-electric"
+      >
+        {tournaments.map((t) => (
+          <option key={t.id} value={t.id} className="bg-white dark:bg-neutral-900 text-stone-850 dark:text-white">
+            {t.name} ({t.status === "ATIVO" ? "Ativo" : "Encerrado"})
+          </option>
+        ))}
+      </select>
+      <button
+        onClick={() => setShowNewTournamentModal(true)}
+        className="px-2.5 py-1.5 rounded-lg bg-brand-electric text-[10px] font-black text-white uppercase hover:bg-brand-electric/80 transition-all cursor-pointer shadow-sm"
+      >
+        + Novo
+      </button>
+    </div>
+  );
 
   const teamCount = teams.length;
   const activeMatchCount = matches.filter((m) => m.status === "LIVE").length;
@@ -113,6 +165,7 @@ export default function Navbar({
 
             {/* Mobile Actions (Theme Toggle & Login/Admin buttons) */}
             <div className="flex md:hidden items-center gap-2">
+              {isAdminLayout && tournamentSelect}
               {themeToggleBtn}
               {adminActions}
             </div>
@@ -164,6 +217,7 @@ export default function Navbar({
 
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-3">
+              {isAdminLayout && tournamentSelect}
               {themeToggleBtn}
               {adminActions}
             </div>
@@ -191,6 +245,63 @@ export default function Navbar({
           </div>
         )}
       </div>
+
+      {/* Banner de Modo Histórico */}
+      {currentTournament?.status === "FINALIZADO" && (
+        <div className="w-full bg-red-600/10 dark:bg-red-950/40 border-t border-red-500/20 text-red-600 dark:text-red-400 py-2.5 px-4 text-center text-xs font-bold flex items-center justify-center gap-1.5">
+          <span>🔒 Modo Histórico: Este campeonato já foi encerrado e os dados são apenas para visualização.</span>
+        </div>
+      )}
+
+      {/* Modal de Criação de Torneio */}
+      {showNewTournamentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="glass-panel w-full max-w-md rounded-2xl p-6 border border-brand-border/60 shadow-2xl bg-[#f2ece0] dark:bg-neutral-950">
+            <div className="flex justify-between items-center border-b border-brand-border/40 pb-4 mb-4">
+              <h3 className="text-lg font-black uppercase text-[#3b342e] dark:text-white tracking-wide">
+                Criar Novo Torneio
+              </h3>
+              <button
+                onClick={() => setShowNewTournamentModal(false)}
+                className="text-neutral-500 hover:text-[#3b342e] dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-brand-text-muted mb-2">
+                  Nome do Campeonato
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newTournamentName}
+                  onChange={(e) => setNewTournamentName(e.target.value)}
+                  placeholder="Ex: Campeonato de Primavera 2026"
+                  className="w-full px-4 py-3 rounded-xl bg-white dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewTournamentModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-neutral-350 dark:border-neutral-700 text-stone-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-all font-bold text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="px-5 py-2.5 rounded-xl bg-brand-electric hover:bg-brand-electric-hover text-white transition-all font-bold text-xs uppercase tracking-wider cursor-pointer shadow-md shadow-brand-electric/15 disabled:opacity-50"
+                >
+                  {isCreating ? "Criando..." : "Criar Torneio"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

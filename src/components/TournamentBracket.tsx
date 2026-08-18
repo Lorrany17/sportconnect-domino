@@ -10,6 +10,7 @@ interface TournamentBracketProps {
   onReplaceTeam: (matchId: string, slot: "A" | "B", newTeamId: string) => void;
   onDeclareWO: (matchId: string, slotWithError: "A" | "B") => void;
   isAdmin?: boolean;
+  isReadOnly?: boolean;
 }
 
 export default function TournamentBracket({
@@ -20,6 +21,7 @@ export default function TournamentBracket({
   onReplaceTeam,
   onDeclareWO,
   isAdmin = false,
+  isReadOnly = false,
 }: TournamentBracketProps) {
   const [editMode, setEditMode] = useState<boolean>(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
@@ -48,12 +50,12 @@ export default function TournamentBracket({
 
   // Drag and Drop handlers
   const handleDragStart = (e: React.DragEvent, matchId: string, slot: "A" | "B") => {
-    if (!editMode) return;
+    if (!editMode || isReadOnly) return;
     e.dataTransfer.setData("text/plain", JSON.stringify({ matchId, slot }));
   };
 
   const handleDrop = (e: React.DragEvent, matchId: string, slot: "A" | "B") => {
-    if (!editMode) return;
+    if (!editMode || isReadOnly) return;
     e.preventDefault();
     try {
       const src = JSON.parse(e.dataTransfer.getData("text/plain"));
@@ -126,7 +128,7 @@ export default function TournamentBracket({
         </div>
 
         {/* Toggle Edit Mode Button */}
-        {hasMatches && isAdmin && (
+        {hasMatches && isAdmin && !isReadOnly && (
           <button
             onClick={() => setEditMode(!editMode)}
             className={`inline-flex items-center gap-2 px-4 py-2 w-fit self-start md:self-auto rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border ${editMode
@@ -252,11 +254,17 @@ export default function TournamentBracket({
                     {phaseMatches.map((m) => {
                       const isCompleted = m.status === "COMPLETED";
                       const isLive = m.status === "LIVE";
-                      const showSets =
-                        (m.setsA !== undefined && m.setsA > 0) ||
-                        (m.setsB !== undefined && m.setsB > 0) ||
+                      const isBestOf3Phase =
                         m.phase.toLowerCase() === "semifinal" ||
                         m.phase.toLowerCase() === "final";
+                      const hasSets =
+                        (m.setsA !== undefined && m.setsA > 0) ||
+                        (m.setsB !== undefined && m.setsB > 0);
+                      const hasScore =
+                        (m.scoreA !== undefined && m.scoreA > 0) ||
+                        (m.scoreB !== undefined && m.scoreB > 0);
+                      
+                      const showSets = hasSets || (isBestOf3Phase && !hasScore);
 
                       return (
                         <div

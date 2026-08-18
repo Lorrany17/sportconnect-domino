@@ -10,6 +10,7 @@ interface RefereePanelProps {
   onAddRound: (matchId: string, round: Round, limit: number) => void;
   onStartMatch: (matchId: string) => void;
   onFinishMatch: (matchId: string, winnerId: string) => void;
+  isReadOnly?: boolean;
 }
 
 export default function RefereePanel({
@@ -18,6 +19,7 @@ export default function RefereePanel({
   onAddRound,
   onStartMatch,
   onFinishMatch,
+  isReadOnly = false,
 }: RefereePanelProps) {
   const TARGET_SCORE = 4;
   const [selectedMatchId, setSelectedMatchId] = useState<string>("");
@@ -370,7 +372,7 @@ export default function RefereePanel({
                           : `Este confronto está aguardando a definição dos adversários das fases anteriores para começar na Mesa ${selectedMatch.tableNumber}.`
                         }
                       </p>
-                      {isMatchReady ? (
+                      {isMatchReady && !isReadOnly ? (
                         <button
                           onClick={() => onStartMatch(selectedMatch.id)}
                           className="mt-6 flex items-center gap-2.5 bg-brand-electric hover:bg-brand-electric-hover text-white px-8 py-4 rounded-xl font-black text-sm uppercase tracking-widest transition-all transform hover:scale-[1.03] active:scale-95 shadow-lg shadow-brand-electric/15 cursor-pointer"
@@ -384,7 +386,7 @@ export default function RefereePanel({
                           className="mt-6 flex items-center gap-2.5 bg-neutral-200 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-400 dark:text-neutral-500 px-8 py-4 rounded-xl font-black text-sm uppercase tracking-widest transition-all opacity-50 cursor-not-allowed"
                         >
                           <Lock className="h-4 w-4" />
-                          Aguardando Definição de Adversários
+                          {isReadOnly ? "Modo Histórico (Leitura)" : "Aguardando Definição de Adversários"}
                         </button>
                       )}
                     </div>
@@ -440,7 +442,7 @@ export default function RefereePanel({
                       </div>
 
                       {/* Team A Keypad */}
-                      {selectedMatch.status === "LIVE" && (
+                      {selectedMatch.status === "LIVE" && !isReadOnly && (
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => handleAddPoints(selectedMatch.teamA.id, 1)}
@@ -475,7 +477,7 @@ export default function RefereePanel({
                         VS
                       </span>
 
-                      {selectedMatch.status === "LIVE" && !isMatchFinished && (
+                      {selectedMatch.status === "LIVE" && !isMatchFinished && !isReadOnly && (
                         <div className="flex flex-col gap-2 w-full max-w-[120px]">
                           <button
                             type="button"
@@ -547,7 +549,7 @@ export default function RefereePanel({
                       </div>
 
                       {/* Team B Keypad */}
-                      {selectedMatch.status === "LIVE" && (
+                      {selectedMatch.status === "LIVE" && !isReadOnly && (
                         <div className="grid grid-cols-2 gap-2 mt-2">
                           <button
                             onClick={() => handleAddPoints(selectedMatch.teamB.id, 1)}
@@ -578,7 +580,7 @@ export default function RefereePanel({
                   </div>
 
                   {/* Scoring Controls and Submission */}
-                  {selectedMatch.status === "LIVE" && (
+                  {selectedMatch.status === "LIVE" && !isReadOnly && (
                     <div className="w-full">
                       {/* Validate & End Match Panel */}
                       <div className="glass-panel rounded-2xl p-5 border border-brand-border/60">

@@ -1,22 +1,30 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Team } from "@/types";
+import { Team, Match } from "@/types";
 import { UserPlus, Trash2, Trophy, HelpCircle, Users, Upload, FileText, Sparkles } from "lucide-react";
 
 interface TeamRegistrationProps {
   teams: Team[];
+  matches: Match[];
   onAddTeam: (name: string, p1: string, p2: string) => void;
   onImportTeams: (importedTeams: Team[]) => void;
   onDeleteTeam: (id: string) => void;
   onGenerateBracket: () => void;
+  isReadOnly?: boolean;
+  onFinishTournament?: () => void;
+  onDeleteTournament?: () => void;
 }
 
 
 export default function TeamRegistration({
   teams,
+  matches,
   onAddTeam,
   onImportTeams,
   onDeleteTeam,
   onGenerateBracket,
+  isReadOnly = false,
+  onFinishTournament,
+  onDeleteTournament,
 }: TeamRegistrationProps) {
   const [teamName, setTeamName] = useState("");
   const [player1, setPlayer1] = useState("");
@@ -24,6 +32,10 @@ export default function TeamRegistration({
   const [error, setError] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "error" } | null>(null);
+
+  const hasMatches = matches.length > 0;
+  const allMatchesFinished = hasMatches && matches.every((m) => m.status === "COMPLETED");
+  const canEndTournament = hasMatches && allMatchesFinished;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -37,6 +49,7 @@ export default function TeamRegistration({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) return;
     if (!teamName.trim() || !player1.trim() || !player2.trim()) {
       setError("Por favor, preencha todos os campos.");
       return;
@@ -62,6 +75,7 @@ export default function TeamRegistration({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    if (isReadOnly) return;
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
@@ -70,12 +84,14 @@ export default function TeamRegistration({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
+    if (isReadOnly) return;
     if (e.target.files && e.target.files[0]) {
       handleFile(e.target.files[0]);
     }
   };
 
   const onButtonClick = () => {
+    if (isReadOnly) return;
     fileInputRef.current?.click();
   };
 
@@ -239,6 +255,47 @@ export default function TeamRegistration({
             Cadastre as duplas inscritas no torneio de dominó e gere o chaveamento mata-mata automático.
           </p>
         </div>
+        {/* Encerrar e Excluir Campeonato buttons */}
+        {onFinishTournament && (
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {!isReadOnly && (
+              <>
+                <button
+                  disabled={!canEndTournament}
+                  onClick={() => {
+                    if (window.confirm("Tem certeza que deseja encerrar este campeonato? Esta ação congelará os placares e o chaveamento de forma permanente no histórico.")) {
+                      onFinishTournament();
+                    }
+                  }}
+                  className="w-full md:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-wider rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:bg-red-700 dark:hover:bg-red-600 cursor-pointer text-xs"
+                  title={canEndTournament ? "Encerrar campeonato atual e mover para o histórico." : "O campeonato só pode ser encerrado após a conclusão de todas as partidas."}
+                >
+                  <span>Encerrar Campeonato Atual</span>
+                </button>
+                {!canEndTournament && (
+                  <span className="text-[10px] text-stone-500 dark:text-brand-text-muted font-bold block text-right max-w-[280px] leading-tight">
+                    ⚠️ O campeonato só pode ser encerrado após a geração de chaves e conclusão de todas as partidas.
+                  </span>
+                )}
+              </>
+            )}
+            
+            {onDeleteTournament && (
+              <button
+                onClick={() => {
+                  if (window.confirm("ATENÇÃO: Tem certeza absoluta que deseja EXCLUIR este campeonato permanentemente? Todos os dados de equipes, partidas e chaveamento deste campeonato serão apagados para sempre. Esta ação NÃO pode ser desfeita.")) {
+                    onDeleteTournament();
+                  }
+                }}
+                className="w-full md:w-auto mt-1 px-4 py-2 border border-red-600/30 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 hover:text-red-700 dark:text-red-400 font-bold uppercase tracking-wider rounded-lg transition-colors text-[10px] cursor-pointer flex items-center justify-center gap-1.5"
+                title="Excluir o campeonato atual e todos os seus dados permanentemente."
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Excluir Campeonato Atual</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -260,10 +317,12 @@ export default function TeamRegistration({
               onDragLeave={handleDrag}
               onDrop={handleDrop}
               onClick={onButtonClick}
-              className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-                dragActive
-                  ? "border-brand-electric bg-brand-electric/5 text-neutral-800 dark:text-white"
-                  : "border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950/20 hover:border-brand-electric/50 text-neutral-500 dark:text-brand-text-muted hover:text-neutral-850 dark:hover:text-white"
+              className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all ${
+                isReadOnly
+                  ? "border-neutral-200 dark:border-neutral-800 bg-neutral-100/50 dark:bg-neutral-900/10 text-neutral-400 dark:text-neutral-600 cursor-not-allowed"
+                  : dragActive
+                  ? "border-brand-electric bg-brand-electric/5 text-neutral-800 dark:text-white cursor-pointer"
+                  : "border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950/20 hover:border-brand-electric/50 text-neutral-500 dark:text-brand-text-muted hover:text-neutral-850 dark:hover:text-white cursor-pointer"
               }`}
             >
               <input
@@ -296,12 +355,13 @@ export default function TeamRegistration({
                 <label className="block text-xs font-bold uppercase tracking-wider text-brand-text-muted mb-2">
                   Nome da Dupla
                 </label>
-                 <input
+                  <input
                   type="text"
+                  disabled={isReadOnly}
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
                   placeholder="Ex: Os Imbatíveis"
-                  className="w-full px-4 py-3 rounded-xl bg-[#f2ece0] dark:bg-neutral-950/80 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600"
+                  className="w-full px-4 py-3 rounded-xl bg-[#f2ece0] dark:bg-neutral-950/80 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -309,12 +369,13 @@ export default function TeamRegistration({
                 <label className="block text-xs font-bold uppercase tracking-wider text-brand-text-muted mb-2">
                   Jogador 1 (Capitão)
                 </label>
-                 <input
+                  <input
                   type="text"
+                  disabled={isReadOnly}
                   value={player1}
                   onChange={(e) => setPlayer1(e.target.value)}
                   placeholder="Ex: Carlos Silva"
-                  className="w-full px-4 py-3 rounded-xl bg-[#f2ece0] dark:bg-neutral-950/80 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600"
+                  className="w-full px-4 py-3 rounded-xl bg-[#f2ece0] dark:bg-neutral-950/80 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -322,12 +383,13 @@ export default function TeamRegistration({
                 <label className="block text-xs font-bold uppercase tracking-wider text-brand-text-muted mb-2">
                   Jogador 2 (Parceiro)
                 </label>
-                 <input
+                  <input
                   type="text"
+                  disabled={isReadOnly}
                   value={player2}
                   onChange={(e) => setPlayer2(e.target.value)}
                   placeholder="Ex: Roberto Souza"
-                  className="w-full px-4 py-3 rounded-xl bg-[#f2ece0] dark:bg-neutral-950/80 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600"
+                  className="w-full px-4 py-3 rounded-xl bg-[#f2ece0] dark:bg-neutral-950/80 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -335,7 +397,8 @@ export default function TeamRegistration({
 
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 bg-brand-electric hover:bg-brand-electric-hover text-white py-3.5 rounded-xl font-bold text-sm tracking-wide transition-all shadow-lg shadow-brand-electric/15 active:scale-95 cursor-pointer"
+                disabled={isReadOnly}
+                className="w-full flex items-center justify-center gap-2 bg-brand-electric hover:bg-brand-electric-hover text-white py-3.5 rounded-xl font-bold text-sm tracking-wide transition-all shadow-lg shadow-brand-electric/15 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <UserPlus className="h-4 w-4" />
                 <span>Adicionar Dupla Manualmente</span>
@@ -352,7 +415,7 @@ export default function TeamRegistration({
                 <Trophy className="h-5 w-5 text-brand-neon" />
                 <span>Duplas Inscritas ({teams.length})</span>
               </h2>
-              {teams.length >= 2 && (
+              {teams.length >= 2 && !isReadOnly && (
                 <button
                   onClick={onGenerateBracket}
                   className="flex items-center gap-2 bg-gradient-to-r from-brand-neon to-brand-neon-orange hover:from-brand-neon-hover hover:to-brand-neon-orange/95 text-neutral-950 px-5 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all transform hover:scale-[1.03] active:scale-95 shadow-lg shadow-brand-neon/10 cursor-pointer"
@@ -401,13 +464,15 @@ export default function TeamRegistration({
                             {team.name}
                           </h3>
                         </div>
-                        <button
-                          onClick={() => onDeleteTeam(team.id)}
-                          className="text-neutral-400 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg transition-all cursor-pointer"
-                          title="Remover Dupla"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => onDeleteTeam(team.id)}
+                            className="text-neutral-400 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg transition-all cursor-pointer"
+                            title="Remover Dupla"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
 
                       <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-brand-border/40 grid grid-cols-2 gap-2 text-xs">

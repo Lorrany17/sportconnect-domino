@@ -1,3 +1,10 @@
+export interface Tournament {
+  id: string;
+  name: string;
+  status: "ATIVO" | "FINALIZADO";
+  createdAt: string;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -5,6 +12,7 @@ export interface Team {
   createdAt: string;
   source?: "external" | "manual" | "csv";
   status?: string;
+  tournamentId?: string;
 }
 
 export interface Round {
@@ -38,6 +46,7 @@ export interface Match {
   finalSetsB?: number;
   isWO?: boolean;
   woSlot?: "A" | "B";
+  tournamentId?: string;
 }
 
 export interface TournamentEvent {
@@ -47,3 +56,4 @@ export interface TournamentEvent {
   description: string;
   type: "INFO" | "SCORE_CHANGE" | "ROUND_WIN" | "MATCH_COMPLETED" | "TORNEIO_START";
 }
+
