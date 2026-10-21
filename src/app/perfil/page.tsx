@@ -32,6 +32,7 @@ import {
   Check,
   Calendar,
   Layers,
+  Lock,
 } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PublicHeader from "@/components/PublicHeader";
@@ -39,41 +40,31 @@ import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { Profile, Team, SportType } from "@/types";
 
-// 6 Avatares pré-definidos do sistema (gamificados e prontos para uso)
-export const SYSTEM_AVATARS = [
-  {
-    id: "pro-1",
-    label: "Campeão Dourado",
-    url: "https://api.dicebear.com/7.x/bottts/svg?seed=ProChampion&backgroundColor=b6e3f4,c0aede,d1d4f9",
-  },
-  {
-    id: "pro-2",
-    label: "Artilheiro",
-    url: "https://api.dicebear.com/7.x/avataaars/svg?seed=StrikerAce&clothing=graphicShirt&hairColor=auburn",
-  },
-  {
-    id: "pro-3",
-    label: "Mestre da Quadra",
-    url: "https://api.dicebear.com/7.x/avataaars/svg?seed=CourtMaster&accessories=sunglasses",
-  },
-  {
-    id: "pro-4",
-    label: "Veterana Pro",
-    url: "https://api.dicebear.com/7.x/avataaars/svg?seed=ProAthleteFemale&top=longHairCurvy",
-  },
-  {
-    id: "pro-5",
-    label: "Cyber Dominó",
-    url: "https://api.dicebear.com/7.x/bottts/svg?seed=DominoTitan&backgroundColor=ffd5dc,ffdfbf",
-  },
-  {
-    id: "pro-6",
-    label: "Capitão Futsal",
-    url: "https://api.dicebear.com/7.x/avataaars/svg?seed=CaptainStar&accessories=round",
-  },
+// Avatares em Emoji (esportivos e animais nativos)
+export const EMOJI_AVATARS = [
+  "🦁",
+  "🦊",
+  "🦅",
+  "🦈",
+  "🦍",
+  "🐉",
+  "⚽",
+  "🏓",
+  "🎮",
+  "🁓",
+  "🏐",
+  "🔥",
+  "👑",
+  "⚡",
+  "🏆",
+  "🎯",
+  "🥊",
+  "🥋",
 ];
+export const DEFAULT_AVATAR = "🦁";
+export const SYSTEM_AVATARS = EMOJI_AVATARS;
 
-// Conquistas Mockadas do Atleta
+// Conquistas do Atleta (Bloqueadas para contas novas até atingir metas)
 const ACHIEVEMENTS = [
   {
     id: "mvp",
@@ -83,6 +74,7 @@ const ACHIEVEMENTS = [
     color: "from-amber-400 to-yellow-500",
     bg: "bg-amber-500/10 border-amber-500/30 text-amber-400",
     date: "Out 2026",
+    unlocked: false,
   },
   {
     id: "striker",
@@ -92,6 +84,7 @@ const ACHIEVEMENTS = [
     color: "from-orange-400 to-red-500",
     bg: "bg-orange-500/10 border-orange-500/30 text-orange-400",
     date: "Set 2026",
+    unlocked: false,
   },
   {
     id: "carroca",
@@ -101,6 +94,7 @@ const ACHIEVEMENTS = [
     color: "from-yellow-400 to-amber-600",
     bg: "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
     date: "Ago 2026",
+    unlocked: false,
   },
   {
     id: "defense",
@@ -110,6 +104,7 @@ const ACHIEVEMENTS = [
     color: "from-blue-400 to-indigo-500",
     bg: "bg-blue-500/10 border-blue-500/30 text-blue-400",
     date: "Jul 2026",
+    unlocked: false,
   },
   {
     id: "champion",
@@ -119,6 +114,7 @@ const ACHIEVEMENTS = [
     color: "from-purple-400 to-pink-500",
     bg: "bg-purple-500/10 border-purple-500/30 text-purple-400",
     date: "Jun 2026",
+    unlocked: false,
   },
   {
     id: "verified",
@@ -128,49 +124,75 @@ const ACHIEVEMENTS = [
     color: "from-emerald-400 to-teal-500",
     bg: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
     date: "2026",
+    unlocked: false,
   },
 ];
 
-// Histórico Recente Mockado de Partidas
-const RECENT_MATCHES = [
-  {
-    id: "m-1",
-    tournament: "SportConnect Masters 2026",
-    sport: "DOMINO" as SportType,
-    phase: "Grande Final",
-    score: "6 x 2",
-    opponent: "Dupla da Laje",
-    result: "WIN",
-    date: "Ontem",
-  },
-  {
-    id: "m-2",
-    tournament: "Torneio Integração de Ping Pong",
-    sport: "PING_PONG" as SportType,
-    phase: "Semifinal",
-    score: "3 x 1",
-    opponent: "Lucas Mota (Solo)",
-    result: "WIN",
-    date: "18 Out",
-  },
-  {
-    id: "m-3",
-    tournament: "Copa Regional de Futsal",
-    sport: "FUTSAL" as SportType,
-    phase: "Quartas de Final",
-    score: "4 x 2",
-    opponent: "Terno Seco Esporte Clube",
-    result: "WIN",
-    date: "12 Out",
-  },
-];
+// Tipos para dados enriquecidos do Atleta
+export interface AthleteTeam extends Team {
+  tournamentName?: string;
+  sportType?: SportType | string;
+}
+
+export interface AthleteMatch {
+  id: string;
+  tournamentId?: string;
+  tournamentName: string;
+  sportType?: SportType | string;
+  phase: string;
+  scoreDisplay: string;
+  userScore: number;
+  opponentScore: number;
+  userTeamSide: "A" | "B";
+  userTeamName: string;
+  opponentName: string;
+  result: "WIN" | "LOSS" | "DRAW";
+  date: string;
+}
+
+// Formatador amigável da modalidade esportiva
+export const formatSportLabel = (type?: string) => {
+  if (!type) return "Modalidade";
+  switch (type.toUpperCase()) {
+    case "DOMINO":
+      return "Dominó";
+    case "PING_PONG":
+      return "Ping Pong";
+    case "FUTSAL":
+      return "Futsal";
+    case "VOLEI":
+      return "Vôlei";
+    default:
+      return type;
+  }
+};
+
+// Título baseado no Nível gamificado
+export const getAthleteRankTitle = (level: number) => {
+  if (level >= 10) return "Lenda da Arena";
+  if (level >= 7) return "Atleta Veterano";
+  if (level >= 4) return "Atleta Competidor";
+  if (level >= 2) return "Atleta Aspirante";
+  return "Atleta Iniciante";
+};
+
+// Emojis temáticos dos esportes
+export const SPORT_EMOJIS: Record<string, string> = {
+  "Ping Pong": "🏓",
+  "Dominó": "🁓",
+  "Futsal": "⚽",
+  "Vôlei": "🏐",
+};
 
 export default function PerfilPage() {
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
 
   const [loading, setLoading] = useState(true);
-  const [userTeams, setUserTeams] = useState<Team[]>([]);
+  const [userTeams, setUserTeams] = useState<AthleteTeam[]>([]);
+  const [recentMatches, setRecentMatches] = useState<AthleteMatch[]>([]);
+  const [isOrganizer, setIsOrganizer] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Estados do Formulário de Edição
@@ -178,6 +200,7 @@ export default function PerfilPage() {
   const [formPhone, setFormPhone] = useState("");
   const [formLocation, setFormLocation] = useState("");
   const [formBio, setFormBio] = useState("");
+  const [formFavoriteSport, setFormFavoriteSport] = useState("Nenhum");
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState("");
   const [avatarTab, setAvatarTab] = useState<"upload" | "url" | "presets">("upload");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -188,7 +211,83 @@ export default function PerfilPage() {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Carrega times do usuário no Supabase
+  // =========================================================================
+  // 3. MOTOR BÁSICO DE NÍVEL E XP (GAMIFICAÇÃO)
+  // Regra: 50 XP por cada equipa/torneio inscrito + 20 XP por cada partida jogada
+  // Nível atual = Math.floor(totalXP / 100) + 1
+  // Progresso = (totalXP % 100) / 100 * 100
+  // =========================================================================
+  const xpData = useMemo(() => {
+    const teamsCount = userTeams.length;
+    const matchesCount = recentMatches.length;
+
+    const xpFromTeams = teamsCount * 50;
+    const xpFromMatches = matchesCount * 20;
+    const totalXP = xpFromTeams + xpFromMatches;
+
+    const currentLevel = Math.floor(totalXP / 100) + 1;
+    const progressPercentage = totalXP % 100;
+    const xpForNextLevel = 100 - (totalXP % 100);
+
+    return {
+      totalXP,
+      xpFromTeams,
+      xpFromMatches,
+      currentLevel,
+      progressPercentage,
+      xpForNextLevel,
+    };
+  }, [userTeams.length, recentMatches.length]);
+
+  // Estatísticas do Atleta calculadas a partir dos dados reais do Supabase
+  const athleteStats = useMemo(() => {
+    const tournamentsCount = userTeams.length;
+    const winsCount = recentMatches.filter((m) => m.result === "WIN").length;
+    const totalMatches = recentMatches.length;
+    const winRate = totalMatches > 0 ? Math.round((winsCount / totalMatches) * 100) : 0;
+
+    let streak = 0;
+    for (const m of recentMatches) {
+      if (m.result === "WIN") {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    return {
+      tournamentsCount,
+      winsCount,
+      winRate,
+      streak,
+    };
+  }, [userTeams, recentMatches]);
+
+  // Conquistas com injeção do troféu dinâmico "Arquiteto de Arenas" na 1ª posição
+  const achievements = useMemo(() => {
+    const architectBadge = {
+      id: "architect",
+      title: "Arquiteto de Arenas",
+      description: "Organizaste o teu primeiro campeonato oficial no SportConnect.",
+      icon: Crown,
+      color: "from-purple-500 to-indigo-600",
+      bg: isOrganizer
+        ? "bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-purple-500/20 shadow-md"
+        : "bg-purple-500/10 border-purple-500/30 text-purple-400",
+      date: isOrganizer ? "Organizador" : "",
+      unlocked: isOrganizer,
+    };
+
+    return [architectBadge, ...ACHIEVEMENTS];
+  }, [isOrganizer]);
+
+  const unlockedAchievementsCount = useMemo(() => {
+    return achievements.filter((a) => a.unlocked).length;
+  }, [achievements]);
+
+  // =========================================================================
+  // 1 & 2. FETCH DINÂMICO DE TIMES ATUAIS E HISTÓRICO DE PARTIDAS
+  // =========================================================================
   useEffect(() => {
     let mounted = true;
 
@@ -198,27 +297,256 @@ export default function PerfilPage() {
       try {
         setLoading(true);
 
-        // Busca equipes vinculadas ao user.id na tabela teams
+        // Fetch do Status de Administrador da tabela profiles
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (mounted && profileData) {
+          setIsAdmin(Boolean(profileData.is_admin));
+        } else if (mounted && profile?.is_admin !== undefined) {
+          setIsAdmin(Boolean(profile.is_admin));
+        }
+
+        // Fetch de Status de Organizador (verifica se o utilizador é dono de algum torneio)
+        const { data: orgData } = await supabase
+          .from("tournaments")
+          .select("id")
+          .eq("owner_id", user.id)
+          .limit(1);
+
+        if (mounted) {
+          setIsOrganizer(Boolean(orgData && orgData.length > 0));
+        }
+
+        // 1. Fetch Dinâmico de "Times Atuais"
+        // Query à tabela teams onde user_id = user.id, trazendo junto tournaments(name, sport_type)
         const { data: teamsData, error: teamsError } = await supabase
           .from("teams")
-          .select("*")
+          .select("*, tournaments(name, sport_type)")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
 
-        if (!teamsError && teamsData && mounted) {
-          const mapped: Team[] = teamsData.map((dbT: any) => ({
+        if (teamsError) {
+          console.warn("Aviso ao carregar times do atleta:", teamsError);
+        }
+
+        const rawTeams = teamsData || [];
+
+        // Fallback para buscar torneios caso a junção direta não tenha preenchido
+        const missingTournIds = rawTeams
+          .filter(
+            (t: any) =>
+              (!t.tournaments ||
+                (Array.isArray(t.tournaments) && t.tournaments.length === 0)) &&
+              t.tournament_id
+          )
+          .map((t: any) => t.tournament_id);
+
+        const fallbackTournMap: Record<string, any> = {};
+        if (missingTournIds.length > 0) {
+          const { data: fbData } = await supabase
+            .from("tournaments")
+            .select("id, name, sport_type")
+            .in("id", missingTournIds);
+
+          if (fbData) {
+            fbData.forEach((fb: any) => {
+              fallbackTournMap[fb.id] = fb;
+            });
+          }
+        }
+
+        const mappedTeams: AthleteTeam[] = rawTeams.map((dbT: any) => {
+          const rawTourn = Array.isArray(dbT.tournaments)
+            ? dbT.tournaments[0]
+            : dbT.tournaments;
+          const finalTourn = rawTourn || fallbackTournMap[dbT.tournament_id] || null;
+
+          return {
             id: dbT.id,
             name: dbT.name,
-            players: [dbT.player1, dbT.player2],
+            players: [dbT.player1, dbT.player2].filter(Boolean),
             roster: dbT.roster,
             createdAt: dbT.created_at || new Date().toISOString(),
             status: dbT.status,
             tournamentId: dbT.tournament_id,
+            tournamentName: finalTourn?.name || "Torneio Oficial",
+            sportType: finalTourn?.sport_type || "DOMINO",
             payment_status: dbT.payment_status,
             manager_name: dbT.manager_name || dbT.player1,
             category: dbT.category || "Geral",
-          }));
-          setUserTeams(mapped);
+          };
+        });
+
+        if (mounted) {
+          setUserTeams(mappedTeams);
+        }
+
+        // 2. Fetch de "Histórico Recente de Partidas"
+        // Extrai um array com os IDs dessas equipas (userTeamIds)
+        const userTeamIds = rawTeams.map((t: any) => t.id).filter(Boolean);
+
+        if (userTeamIds.length === 0) {
+          if (mounted) setRecentMatches([]);
+          return;
+        }
+
+        // Mapa de nomes de equipes conhecidas
+        const teamsNameMap: Record<string, string> = {};
+        rawTeams.forEach((t: any) => {
+          teamsNameMap[t.id] = t.name;
+        });
+
+        const tournamentsMap: Record<string, any> = { ...fallbackTournMap };
+        rawTeams.forEach((t: any) => {
+          if (t.tournament_id) {
+            const rawTourn = Array.isArray(t.tournaments) ? t.tournaments[0] : t.tournaments;
+            if (rawTourn) tournamentsMap[t.tournament_id] = rawTourn;
+          }
+        });
+
+        // Query à tabela matches buscando partidas concluídas onde o usuário participou
+        let matchesRaw: any[] = [];
+        try {
+          const userTeamIdsFilter = userTeamIds.join(",");
+          const { data: matchesData, error: matchesError } = await supabase
+            .from("matches")
+            .select("*")
+            .or(`team_a_id.in.(${userTeamIdsFilter}),team_b_id.in.(${userTeamIdsFilter})`)
+            .order("created_at", { ascending: false })
+            .limit(5);
+
+          if (matchesError) {
+            // Fallback resiliente caso a coluna created_at não exista na tabela matches
+            if (matchesError.code === "42703" || matchesError.message?.includes("created_at")) {
+              const { data: fbMatches, error: fbMatchesErr } = await supabase
+                .from("matches")
+                .select("*")
+                .or(`team_a_id.in.(${userTeamIdsFilter}),team_b_id.in.(${userTeamIdsFilter})`)
+                .limit(5);
+
+              if (!fbMatchesErr && fbMatches) {
+                matchesRaw = fbMatches;
+              }
+            } else {
+              console.warn("Aviso ao buscar partidas do atleta:", matchesError);
+            }
+          } else if (matchesData) {
+            matchesRaw = matchesData;
+          }
+        } catch (err) {
+          console.warn("Exceção ao buscar partidas:", err);
+        }
+
+        // Se houver partidas, resolve nomes dos adversários e torneios faltantes
+        if (matchesRaw.length > 0) {
+          const missingOpponentTeamIds = matchesRaw
+            .flatMap((m: any) => [m.team_a_id, m.team_b_id])
+            .filter((id: any) => id && !teamsNameMap[id] && id !== "bye");
+
+          if (missingOpponentTeamIds.length > 0) {
+            const { data: oppTeams } = await supabase
+              .from("teams")
+              .select("id, name")
+              .in("id", missingOpponentTeamIds);
+
+            if (oppTeams) {
+              oppTeams.forEach((ot: any) => {
+                teamsNameMap[ot.id] = ot.name;
+              });
+            }
+          }
+
+          const missingMatchTournIds = matchesRaw
+            .map((m: any) => m.tournament_id)
+            .filter((id: any) => id && !tournamentsMap[id]);
+
+          if (missingMatchTournIds.length > 0) {
+            const { data: mtData } = await supabase
+              .from("tournaments")
+              .select("id, name, sport_type")
+              .in("id", missingMatchTournIds);
+
+            if (mtData) {
+              mtData.forEach((mt: any) => {
+                tournamentsMap[mt.id] = mt;
+              });
+            }
+          }
+
+          // Mapeia partidas identificando o lado do usuário e comparando scores
+          const mappedMatches: AthleteMatch[] = matchesRaw.map((m: any) => {
+            const isTeamA = userTeamIds.includes(m.team_a_id);
+            const userSide: "A" | "B" = isTeamA ? "A" : "B";
+
+            const userTeamName = isTeamA
+              ? teamsNameMap[m.team_a_id] || "Seu Time"
+              : teamsNameMap[m.team_b_id] || "Seu Time";
+
+            const oppTeamId = isTeamA ? m.team_b_id : m.team_a_id;
+            const oppTeamName =
+              oppTeamId === "bye"
+                ? "BYE"
+                : teamsNameMap[oppTeamId] || "Adversário";
+
+            const scoreA = Number(m.score_a) || 0;
+            const scoreB = Number(m.score_b) || 0;
+
+            const userScore = userSide === "A" ? scoreA : scoreB;
+            const oppScore = userSide === "A" ? scoreB : scoreA;
+
+            let result: "WIN" | "LOSS" | "DRAW" = "DRAW";
+            if (userScore > oppScore) {
+              result = "WIN";
+            } else if (userScore < oppScore) {
+              result = "LOSS";
+            } else {
+              result = "DRAW";
+            }
+
+            const tourn = tournamentsMap[m.tournament_id];
+            const tournamentName = tourn?.name || "Torneio Oficial";
+            const sportType = tourn?.sport_type;
+
+            let formattedDate = "Recente";
+            if (m.created_at) {
+              try {
+                formattedDate = new Date(m.created_at).toLocaleDateString("pt-BR", {
+                  day: "2-digit",
+                  month: "short",
+                });
+              } catch {
+                formattedDate = "Recente";
+              }
+            }
+
+            return {
+              id: m.id,
+              tournamentId: m.tournament_id,
+              tournamentName,
+              sportType,
+              phase: m.phase || "Fase Eliminatória",
+              scoreDisplay: `${scoreA} x ${scoreB}`,
+              userScore,
+              opponentScore: oppScore,
+              userTeamSide: userSide,
+              userTeamName,
+              opponentName: oppTeamName,
+              result,
+              date: formattedDate,
+            };
+          });
+
+          if (mounted) {
+            setRecentMatches(mappedMatches);
+          }
+        } else {
+          if (mounted) {
+            setRecentMatches([]);
+          }
         }
       } catch (err) {
         console.warn("Aviso ao carregar dados do atleta:", err);
@@ -234,22 +562,43 @@ export default function PerfilPage() {
     };
   }, [user]);
 
+  // Mantém o estado isAdmin sincronizado com o perfil caso atualizado
+  useEffect(() => {
+    if (profile?.is_admin !== undefined) {
+      setIsAdmin(Boolean(profile.is_admin));
+    }
+  }, [profile?.is_admin]);
+
   // Sincroniza dados iniciais do modal quando o perfil estiver carregado
   const openEditModal = () => {
     setFormName(
       profile?.full_name ||
       user?.user_metadata?.full_name ||
       user?.user_metadata?.name ||
+      displayName ||
       ""
     );
     setFormPhone(profile?.phone || "");
-    setFormLocation(profile?.location || "Picos, PI");
+    setFormLocation(profile?.location || displayLocation || "Picos, PI");
     setFormBio(
       profile?.bio ||
+      displayBio ||
       "Atleta competitivo do SportConnect. Foco em dominó, esportes de mesa e torneios oficiais."
     );
-    setSelectedAvatarUrl(profile?.avatar_url || SYSTEM_AVATARS[0].url);
-    setCustomUrlInput(profile?.avatar_url || "");
+    setFormFavoriteSport(profile?.favorite_sport || "Nenhum");
+    const currentAvatar =
+      profile?.avatar_url ||
+      user?.user_metadata?.avatar_url ||
+      DEFAULT_AVATAR;
+    setSelectedAvatarUrl(currentAvatar);
+    setCustomUrlInput(
+      currentAvatar.startsWith("http") ? currentAvatar : ""
+    );
+    if (!currentAvatar.startsWith("http") && !currentAvatar.startsWith("data:")) {
+      setAvatarTab("presets");
+    } else {
+      setAvatarTab("upload");
+    }
     setUploadFile(null);
     setUploadPreview(null);
     setErrorMessage("");
@@ -329,20 +678,25 @@ export default function PerfilPage() {
         }
       }
 
-      // 2. Atualizar ou Criar perfil na tabela profiles do Supabase
+      // 2. Atualizar explicitamente na tabela profiles do Supabase apenas os campos editáveis
+      // (NUNCA envie a coluna email para não violar a not-null constraint)
       const { error: profileError } = await supabase
         .from("profiles")
-        .upsert({
-          id: user.id,
+        .update({
           full_name: trimmedName,
+          avatar_url: finalAvatarUrl,
           phone: formPhone.trim() || null,
           location: formLocation.trim() || null,
           bio: formBio.trim() || null,
-          avatar_url: finalAvatarUrl,
-        });
+          favorite_sport:
+            formFavoriteSport && formFavoriteSport !== "Nenhum"
+              ? formFavoriteSport
+              : null,
+        })
+        .eq("id", user.id);
 
       if (profileError) {
-        console.error("Erro ao salvar perfil no Supabase:", profileError);
+        console.error("Erro ao atualizar perfil no Supabase:", profileError);
         throw profileError;
       }
 
@@ -379,13 +733,22 @@ export default function PerfilPage() {
   const displayAvatar =
     profile?.avatar_url ||
     user?.user_metadata?.avatar_url ||
-    SYSTEM_AVATARS[0].url;
+    DEFAULT_AVATAR;
 
   const displayLocation = profile?.location || "Picos, PI";
   const displayPhone = profile?.phone || "(89) 99999-9999";
   const displayBio =
     profile?.bio ||
     "Atleta oficial do ecossistema SportConnect. Focado em competições oficiais de Dominó, Ping Pong, Futsal e Vôlei.";
+  const displayFavoriteSport =
+    profile?.favorite_sport && profile.favorite_sport !== "Nenhum"
+      ? profile.favorite_sport
+      : null;
+
+  // Lógica de Liberação do Selo "PRO VERIFICADO"
+  // Visível apenas para administradores ou atletas com pelo menos 10 participações em torneios
+  const teams = userTeams;
+  const isProVerified = isAdmin || (teams && teams.length >= 10);
 
   return (
     <ProtectedRoute>
@@ -414,21 +777,31 @@ export default function PerfilPage() {
               <div className="flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-5 text-center sm:text-left">
                 {/* Foto em Destaque com Moldura Dourada & Badge Nível */}
                 <div className="relative group shrink-0">
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-[#1e1e24] p-1 border-2 border-amber-400/60 shadow-xl shadow-amber-500/10 overflow-hidden relative">
-                    <img
-                      src={displayAvatar}
-                      alt={displayName}
-                      className="w-full h-full object-cover rounded-2xl transition-transform group-hover:scale-105"
-                    />
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-[#1e1e24] p-1 border-2 border-amber-400/60 shadow-xl shadow-amber-500/10 overflow-hidden relative flex items-center justify-center">
+                    {displayAvatar &&
+                    !displayAvatar.startsWith("http") &&
+                    !displayAvatar.startsWith("data:") ? (
+                      <div className="w-full h-full rounded-2xl bg-gradient-to-br from-[#24242c] via-[#1a1a20] to-amber-950/20 flex items-center justify-center select-none shadow-inner">
+                        <span className="text-5xl sm:text-6xl transition-transform group-hover:scale-110">
+                          {displayAvatar}
+                        </span>
+                      </div>
+                    ) : (
+                      <img
+                        src={displayAvatar}
+                        alt={displayName}
+                        className="w-full h-full object-cover rounded-2xl transition-transform group-hover:scale-105"
+                      />
+                    )}
                   </div>
 
-                  {/* Badge Nível 42 sobreposta */}
+                  {/* Badge Nível Dinâmico sobreposta */}
                   <div
                     className="absolute -bottom-2 -right-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-black text-[11px] uppercase tracking-wider shadow-lg border border-black/40 flex items-center gap-1 font-display"
                     title="Nível de Atleta na Plataforma"
                   >
                     <Zap className="h-3 w-3 fill-current text-black" />
-                    <span>NV. 42</span>
+                    <span>NV. {xpData.currentLevel}</span>
                   </div>
                 </div>
 
@@ -439,11 +812,21 @@ export default function PerfilPage() {
                       {displayName}
                     </h1>
 
-                    {/* Badge PRO VERIFICADO (Verde) */}
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-[11px] font-black uppercase tracking-wider shadow-sm">
-                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>PRO VERIFICADO</span>
-                    </span>
+                    {/* Badge PRO VERIFICADO (Verde) - apenas se for admin ou tiver >= 10 torneios */}
+                    {isProVerified && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-[11px] font-black uppercase tracking-wider shadow-sm">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>PRO VERIFICADO</span>
+                      </span>
+                    )}
+
+                    {/* Badge Esporte Favorito (se escolhido e diferente de "Nenhum") */}
+                    {displayFavoriteSport && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/15 border border-blue-500/40 text-blue-300 text-[11px] font-black uppercase tracking-wider shadow-sm">
+                        <span>{SPORT_EMOJIS[displayFavoriteSport] || "🏅"}</span>
+                        <span>{displayFavoriteSport}</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Localização & Contato */}
@@ -492,14 +875,14 @@ export default function PerfilPage() {
             </div>
 
             {/* ========================================================= */}
-            {/* 2. BARRA DE PROGRESSO & GAMIFICAÇÃO (NÍVEL 42 XP) */}
+            {/* 2. BARRA DE PROGRESSO & GAMIFICAÇÃO (NÍVEL DINÂMICO XP) */}
             {/* ========================================================= */}
             <div className="mt-8 pt-6 border-t border-[#27272a]/70 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="font-black text-amber-400 uppercase tracking-wider flex items-center gap-1">
                     <Award className="h-4 w-4 text-amber-400" />
-                    <span>Nível 42 • Atleta Veterano</span>
+                    <span>Nível {xpData.currentLevel} • {getAthleteRankTitle(xpData.currentLevel)}</span>
                   </span>
                   <span className="text-[11px] text-zinc-500 font-bold hidden sm:inline">
                     (Temporada 2026)
@@ -507,22 +890,27 @@ export default function PerfilPage() {
                 </div>
 
                 <div className="text-xs text-zinc-400 font-mono">
-                  <span className="text-amber-300 font-bold">18.450</span> / 20.000 XP{" "}
-                  <span className="text-zinc-500">(92%)</span>
+                  <span className="text-amber-300 font-bold">{xpData.totalXP}</span> /{" "}
+                  {xpData.currentLevel * 100} XP{" "}
+                  <span className="text-zinc-500">
+                    ({Math.round(xpData.progressPercentage)}%)
+                  </span>
                 </div>
               </div>
 
               {/* Barra Amarela de XP com Efeito Glow */}
               <div className="w-full h-3.5 bg-zinc-900/90 rounded-full border border-zinc-800 p-0.5 overflow-hidden shadow-inner relative">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-400 shadow-md shadow-amber-500/40 transition-all duration-1000 animate-pulse"
-                  style={{ width: "92%" }}
+                  className="h-full rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-400 shadow-md shadow-amber-500/40 transition-all duration-700"
+                  style={{
+                    width: `${Math.min(100, Math.max(xpData.progressPercentage, xpData.totalXP > 0 ? 5 : 0))}%`,
+                  }}
                 />
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-zinc-500">
-                <span>⚡ +250 XP na última partida</span>
-                <span>Faltam 1.550 XP para o Nível 43 (Moldura Lendária)</span>
+                <span>⚡ +50 XP por time inscrito • +20 XP por partida jogada</span>
+                <span>Faltam {xpData.xpForNextLevel} XP para o Nível {xpData.currentLevel + 1}</span>
               </div>
             </div>
           </section>
@@ -533,34 +921,48 @@ export default function PerfilPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl bg-[#121214] border border-[#27272a] space-y-1 shadow-md">
               <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold block">
-                Torneios Disputados
+                Times Inscritos
               </span>
-              <div className="text-2xl font-black text-white font-display">14</div>
-              <span className="text-[10px] text-zinc-500 block">Oficiais SportConnect</span>
+              <div className="text-2xl font-black text-white font-display">
+                {athleteStats.tournamentsCount}
+              </div>
+              <span className="text-[10px] text-zinc-500 block">Equipes vinculadas</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#121214] border border-[#27272a] space-y-1 shadow-md">
               <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold block">
                 Títulos & Vitórias
               </span>
-              <div className="text-2xl font-black text-amber-400 font-display">8</div>
-              <span className="text-[10px] text-amber-400/70 block">5 Campeonatos • 3 Pratas</span>
+              <div className="text-2xl font-black text-amber-400 font-display">
+                {athleteStats.winsCount}
+              </div>
+              <span className="text-[10px] text-amber-400/70 block">
+                {athleteStats.winsCount === 1 ? "1 Vitória registrada" : `${athleteStats.winsCount} Vitórias registradas`}
+              </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#121214] border border-[#27272a] space-y-1 shadow-md">
               <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold block">
                 Taxa de Vitória
               </span>
-              <div className="text-2xl font-black text-emerald-400 font-display">78%</div>
-              <span className="text-[10px] text-emerald-400/70 block">Aproveitamento geral</span>
+              <div className="text-2xl font-black text-emerald-400 font-display">
+                {athleteStats.winRate}%
+              </div>
+              <span className="text-[10px] text-emerald-400/70 block">
+                {recentMatches.length > 0 ? "Aproveitamento geral" : "Sem partidas"}
+              </span>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#121214] border border-[#27272a] space-y-1 shadow-md">
               <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold block">
                 Sequência Atual
               </span>
-              <div className="text-2xl font-black text-orange-400 font-display">🔥 4W</div>
-              <span className="text-[10px] text-orange-400/70 block">Partidas sem perder</span>
+              <div className="text-2xl font-black text-orange-400 font-display">
+                {athleteStats.streak > 0 ? `🔥 ${athleteStats.streak}W` : "0W"}
+              </div>
+              <span className="text-[10px] text-orange-400/70 block">
+                {athleteStats.streak > 0 ? "Vitórias consecutivas" : "Inicie uma sequência"}
+              </span>
             </div>
           </div>
 
@@ -573,30 +975,73 @@ export default function PerfilPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-black uppercase tracking-wider text-zinc-200 flex items-center gap-2">
                   <Trophy className="h-4 w-4 text-amber-400" />
-                  <span>Conquistas e Emblemas ({ACHIEVEMENTS.length})</span>
+                  <span>Conquistas e Emblemas ({achievements.length})</span>
                 </h3>
-                <span className="text-[11px] text-amber-400 font-bold">100% Desbloqueadas</span>
+                <span
+                  className={`text-[11px] font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
+                    unlockedAchievementsCount > 0
+                      ? "text-emerald-400 bg-emerald-500/15 border-emerald-500/35"
+                      : "text-zinc-500 bg-zinc-900/80 border-zinc-800"
+                  }`}
+                >
+                  {unlockedAchievementsCount > 0 ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                      <span>
+                        {unlockedAchievementsCount}{" "}
+                        {unlockedAchievementsCount === 1 ? "Desbloqueada" : "Desbloqueadas"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-3 w-3 text-zinc-500" />
+                      <span>0 Desbloqueadas</span>
+                    </>
+                  )}
+                </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {ACHIEVEMENTS.map((ach) => {
+                {achievements.map((ach) => {
                   const Icon = ach.icon;
+                  const isUnlocked = ach.unlocked;
+
                   return (
                     <div
                       key={ach.id}
-                      className="p-4 rounded-2xl bg-[#121214] border border-[#27272a] hover:border-amber-400/30 transition-all flex items-start gap-3.5 shadow-md group"
+                      className={`p-4 rounded-2xl bg-[#121214] border transition-all flex items-start gap-3.5 shadow-md group ${
+                        isUnlocked
+                          ? "border-purple-500/40 bg-gradient-to-br from-[#16161a] via-[#121214] to-purple-950/20 hover:border-purple-400/60 shadow-lg shadow-purple-500/5 opacity-100"
+                          : "border-[#27272a] opacity-50 grayscale hover:grayscale-0 hover:opacity-75"
+                      }`}
                     >
                       <div
                         className={`w-11 h-11 rounded-2xl ${ach.bg} border flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform`}
                       >
                         <Icon className="h-5 w-5" />
                       </div>
-                      <div className="space-y-0.5">
+                      <div className="space-y-0.5 flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
-                          <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
+                          <h4
+                            className={`text-xs font-bold transition-colors truncate ${
+                              isUnlocked
+                                ? "text-white group-hover:text-purple-300"
+                                : "text-white group-hover:text-amber-300"
+                            }`}
+                          >
                             {ach.title}
                           </h4>
-                          <span className="text-[9px] text-zinc-500">{ach.date}</span>
+                          {isUnlocked ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider shrink-0 shadow-sm">
+                              <CheckCircle2 className="h-2.5 w-2.5 text-emerald-400" />
+                              <span>Desbloqueado</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500 font-bold shrink-0">
+                              <Lock className="h-2.5 w-2.5" />
+                              <span>Bloqueado</span>
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-zinc-400 leading-tight">
                           {ach.description}
@@ -612,42 +1057,82 @@ export default function PerfilPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black uppercase tracking-wider text-zinc-200 flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-[#00a2ff]" />
-                    <span>Histórico Recente de Partidas</span>
+                    <span>Histórico Recente de Partidas ({recentMatches.length})</span>
                   </h3>
                   <span className="text-[11px] text-zinc-500">Últimos confrontos</span>
                 </div>
 
-                <div className="space-y-2.5">
-                  {RECENT_MATCHES.map((m) => (
-                    <div
-                      key={m.id}
-                      className="p-3.5 rounded-2xl bg-[#121214] border border-[#27272a] flex items-center justify-between gap-4 shadow-sm hover:border-zinc-700 transition-all"
-                    >
-                      <div className="space-y-0.5">
-                        <span className="text-xs font-bold text-white block">
-                          {m.tournament}
-                        </span>
-                        <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-                          <span className="text-[#00a2ff] font-semibold">{m.phase}</span>
-                          <span>•</span>
-                          <span>vs {m.opponent}</span>
-                        </div>
-                      </div>
+                {recentMatches.length === 0 ? (
+                  <div className="p-6 rounded-2xl bg-[#121214] border border-dashed border-[#27272a] text-center space-y-2">
+                    <Calendar className="h-8 w-8 text-zinc-600 mx-auto" />
+                    <p className="text-xs font-bold text-zinc-400">Nenhuma partida registrada ainda</p>
+                    <p className="text-[11px] text-zinc-600">
+                      Suas partidas oficiais e resultados de súmula aparecerão aqui automaticamente.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {recentMatches.map((m) => {
+                      const isWin = m.result === "WIN";
+                      const isLoss = m.result === "LOSS";
 
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right">
-                          <span className="text-sm font-black text-white font-mono block">
-                            {m.score}
-                          </span>
-                          <span className="text-[10px] text-emerald-400 font-bold uppercase">
-                            Vitória 🏆
-                          </span>
+                      // Badge de resultado com cor apropriada: Verde (Vitória), Vermelho (Derrota), Cinzento (Empate)
+                      const badgeClass = isWin
+                        ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+                        : isLoss
+                        ? "text-red-400 bg-red-500/10 border-red-500/30"
+                        : "text-zinc-400 bg-zinc-500/10 border-zinc-500/30";
+
+                      const badgeText = isWin
+                        ? "Vitória 🏆"
+                        : isLoss
+                        ? "Derrota ❌"
+                        : "Empate ⚖️";
+
+                      return (
+                        <div
+                          key={m.id}
+                          className="p-3.5 rounded-2xl bg-[#121214] border border-[#27272a] flex items-center justify-between gap-4 shadow-sm hover:border-zinc-700 transition-all"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <span className="text-xs font-bold text-white block truncate">
+                              {m.tournamentName}
+                            </span>
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+                              <span className="text-[#00a2ff] font-semibold">{m.phase}</span>
+                              <span>•</span>
+                              <span className="text-zinc-300 truncate">vs {m.opponentName}</span>
+                              {m.sportType && (
+                                <>
+                                  <span className="text-zinc-600">•</span>
+                                  <span className="text-zinc-400 font-medium">
+                                    {formatSportLabel(m.sportType)}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <span className="text-sm font-black text-white font-mono block">
+                                {m.scoreDisplay}
+                              </span>
+                              <span
+                                className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border inline-block ${badgeClass}`}
+                              >
+                                {badgeText}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-zinc-500 hidden sm:inline">
+                              {m.date}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-[10px] text-zinc-500">{m.date}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -669,7 +1154,9 @@ export default function PerfilPage() {
               {userTeams.length === 0 ? (
                 <div className="p-6 rounded-2xl bg-[#121214] border border-dashed border-[#27272a] text-center space-y-2">
                   <Users className="h-8 w-8 text-zinc-600 mx-auto" />
-                  <p className="text-xs font-bold text-zinc-400">Nenhum time inscrito no momento</p>
+                  <p className="text-xs font-bold text-zinc-400">
+                    Ainda não estás inscrito em nenhum time.
+                  </p>
                   <p className="text-[11px] text-zinc-600">
                     Explore os campeonatos disponíveis e inscreva sua dupla ou equipe oficial.
                   </p>
@@ -685,16 +1172,32 @@ export default function PerfilPage() {
                   {userTeams.map((team) => (
                     <div
                       key={team.id}
-                      className="p-4 rounded-2xl bg-[#121214] border border-[#27272a] space-y-2 hover:border-zinc-700 transition-all shadow-sm"
+                      className="p-4 rounded-2xl bg-[#121214] border border-[#27272a] space-y-2.5 hover:border-zinc-700 transition-all shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div>
+                        <div className="space-y-1">
                           <h4 className="text-xs font-black text-white">{team.name}</h4>
-                          <span className="text-[10px] text-zinc-400 block">
-                            Categoria: {team.category || "Geral"}
-                          </span>
+                          <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                            <Trophy className="h-3 w-3 text-amber-400 shrink-0" />
+                            <span className="font-semibold text-zinc-300">
+                              {team.tournamentName || "Torneio"}
+                            </span>
+                            {team.sportType && (
+                              <>
+                                <span className="text-zinc-600">•</span>
+                                <span className="text-[#00a2ff] font-medium">
+                                  {formatSportLabel(team.sportType)}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          {team.category && (
+                            <span className="text-[10px] text-zinc-500 block">
+                              Categoria: {team.category}
+                            </span>
+                          )}
                         </div>
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase tracking-wider shrink-0">
                           {team.status || "Ativo"}
                         </span>
                       </div>
@@ -706,7 +1209,7 @@ export default function PerfilPage() {
                         {team.tournamentId && (
                           <Link
                             href={`/torneio/${team.tournamentId}`}
-                            className="text-[#00a2ff] hover:underline flex items-center gap-0.5"
+                            className="text-[#00a2ff] hover:underline flex items-center gap-0.5 font-medium"
                           >
                             <span>Ver Torneio</span>
                             <ChevronRight className="h-3 w-3" />
@@ -758,12 +1261,20 @@ export default function PerfilPage() {
                 <div className="p-4 rounded-2xl bg-[#0a0a0c] border border-[#27272a] space-y-4">
                   <div className="flex items-center gap-3">
                     {/* Prévia da Foto */}
-                    <div className="w-16 h-16 rounded-2xl bg-zinc-900 border-2 border-amber-400/80 p-0.5 shadow-lg shrink-0 overflow-hidden">
-                      <img
-                        src={selectedAvatarUrl || SYSTEM_AVATARS[0].url}
-                        alt="Prévia do Avatar"
-                        className="w-full h-full object-cover rounded-xl"
-                      />
+                    <div className="w-16 h-16 rounded-2xl bg-zinc-900 border-2 border-amber-400/80 p-0.5 shadow-lg shrink-0 overflow-hidden flex items-center justify-center">
+                      {selectedAvatarUrl &&
+                      !selectedAvatarUrl.startsWith("http") &&
+                      !selectedAvatarUrl.startsWith("data:") ? (
+                        <div className="w-full h-full rounded-xl bg-gradient-to-br from-[#24242c] via-[#1a1a20] to-amber-950/30 flex items-center justify-center select-none">
+                          <span className="text-3xl">{selectedAvatarUrl}</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={selectedAvatarUrl || DEFAULT_AVATAR}
+                          alt="Prévia do Avatar"
+                          className="w-full h-full object-cover rounded-xl"
+                        />
+                      )}
                     </div>
                     <div>
                       <span className="text-xs font-bold text-white block">
@@ -866,34 +1377,30 @@ export default function PerfilPage() {
                     </div>
                   )}
 
-                  {/* Conteúdo da Tab 3: Avatares do Sistema */}
+                  {/* Conteúdo da Tab 3: Avatares do Sistema (Emojis) */}
                   {avatarTab === "presets" && (
                     <div className="space-y-2 animate-fadeIn">
                       <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
-                        Escolha um Avatar Pré-definido
+                        Escolha um Emoji de Avatar
                       </label>
                       <div className="grid grid-cols-6 gap-2">
-                        {SYSTEM_AVATARS.map((preset) => {
-                          const isSelected = selectedAvatarUrl === preset.url;
+                        {EMOJI_AVATARS.map((emoji) => {
+                          const isSelected = selectedAvatarUrl === emoji;
                           return (
                             <button
                               type="button"
-                              key={preset.id}
-                              onClick={() => setSelectedAvatarUrl(preset.url)}
-                              className={`aspect-square rounded-xl p-1 border-2 transition-all cursor-pointer relative bg-zinc-900 overflow-hidden ${
+                              key={emoji}
+                              onClick={() => setSelectedAvatarUrl(emoji)}
+                              className={`aspect-square rounded-2xl border-2 transition-all cursor-pointer relative bg-zinc-900/90 hover:bg-zinc-800 flex items-center justify-center select-none text-4xl ${
                                 isSelected
-                                  ? "border-amber-400 ring-2 ring-amber-400/40 scale-105"
+                                  ? "border-amber-400 bg-amber-500/10 ring-2 ring-amber-400/40 scale-105"
                                   : "border-zinc-800 hover:border-zinc-600"
                               }`}
-                              title={preset.label}
+                              title={`Avatar ${emoji}`}
                             >
-                              <img
-                                src={preset.url}
-                                alt={preset.label}
-                                className="w-full h-full object-cover rounded-lg"
-                              />
+                              <span>{emoji}</span>
                               {isSelected && (
-                                <div className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 text-black flex items-center justify-center">
+                                <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-amber-400 text-black flex items-center justify-center shadow-sm">
                                   <Check className="h-2.5 w-2.5 stroke-[3]" />
                                 </div>
                               )}
@@ -947,6 +1454,27 @@ export default function PerfilPage() {
                         className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#27272a] focus:border-amber-400 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all shadow-inner"
                       />
                     </div>
+                  </div>
+
+                  {/* Campo Esporte Favorito (Dropdown) */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block flex items-center justify-between">
+                      <span>Esporte Favorito</span>
+                      <span className="text-[10px] text-zinc-500 font-normal">
+                        Destaque temático no seu perfil
+                      </span>
+                    </label>
+                    <select
+                      value={formFavoriteSport}
+                      onChange={(e) => setFormFavoriteSport(e.target.value)}
+                      className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#27272a] focus:border-amber-400 rounded-xl text-sm text-zinc-100 outline-none transition-all shadow-inner cursor-pointer"
+                    >
+                      <option value="Nenhum">Nenhum</option>
+                      <option value="Ping Pong">🏓 Ping Pong</option>
+                      <option value="Dominó">🁓 Dominó</option>
+                      <option value="Futsal">⚽ Futsal</option>
+                      <option value="Vôlei">🏐 Vôlei</option>
+                    </select>
                   </div>
 
                   <div className="space-y-1">

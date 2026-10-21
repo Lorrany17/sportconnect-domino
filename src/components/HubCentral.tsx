@@ -399,11 +399,17 @@ export default function HubCentral() {
               title="Acessar Meu Perfil"
             >
               {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={userName}
-                  className="w-8 h-8 rounded-xl object-cover border border-zinc-700/80 shadow-inner shrink-0 group-hover:border-[#00a2ff] transition-colors"
-                />
+                profile.avatar_url && !profile.avatar_url.startsWith("http") && !profile.avatar_url.startsWith("data:") ? (
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500/25 via-[#1c1c20] to-zinc-800 flex items-center justify-center text-sm select-none border border-zinc-700/80 shadow-inner shrink-0 group-hover:border-[#00a2ff] transition-colors">
+                    <span>{profile.avatar_url}</span>
+                  </div>
+                ) : (
+                  <img
+                    src={profile.avatar_url}
+                    alt={userName}
+                    className="w-8 h-8 rounded-xl object-cover border border-zinc-700/80 shadow-inner shrink-0 group-hover:border-[#00a2ff] transition-colors"
+                  />
+                )
               ) : (
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center uppercase shadow-inner shrink-0 group-hover:from-blue-500 group-hover:to-indigo-500 transition-all">
                   {userName.charAt(0)}

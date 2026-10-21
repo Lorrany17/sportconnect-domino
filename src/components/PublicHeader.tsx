@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthProvider";
 import { useTournament } from "@/context/TournamentContext";
+import { supabase } from "@/lib/supabase";
 
 interface PublicHeaderProps {
   activePage?: "explorar" | "torneio" | "chaveamento";
@@ -29,6 +30,43 @@ export default function PublicHeader({ activePage }: PublicHeaderProps) {
   const { logout } = useTournament();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url || null);
+
+  // Sincronização do avatar do perfil do usuário ativo
+  useEffect(() => {
+    let mounted = true;
+
+    async function fetchUserAvatar() {
+      if (!user) {
+        setAvatarUrl(null);
+        return;
+      }
+
+      if (profile?.avatar_url) {
+        setAvatarUrl(profile.avatar_url);
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!error && data?.avatar_url && mounted) {
+          setAvatarUrl(data.avatar_url);
+        }
+      } catch (err) {
+        console.warn("Aviso ao sincronizar avatar no header:", err);
+      }
+    }
+
+    fetchUserAvatar();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user, profile?.avatar_url]);
 
   const userName =
     profile?.full_name ||
@@ -45,6 +83,9 @@ export default function PublicHeader({ activePage }: PublicHeaderProps) {
 
   const isExplorarActive = pathname === "/explorar" || activePage === "explorar";
   const isHubActive = pathname === "/hub";
+  const isEmoji = Boolean(
+    avatarUrl && !avatarUrl.startsWith("http") && !avatarUrl.startsWith("data:")
+  );
 
   return (
     <header className="w-full border-b border-[#27272a] bg-[#141416]/95 backdrop-blur-md sticky top-0 z-40 transition-all">
@@ -114,17 +155,25 @@ export default function PublicHeader({ activePage }: PublicHeaderProps) {
                 className="flex items-center gap-2.5 p-1.5 pr-2.5 rounded-2xl hover:bg-zinc-800/80 border border-transparent hover:border-zinc-700/60 transition-all cursor-pointer group"
                 title="Menu do usuário"
               >
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={userName}
-                    className="w-8 h-8 rounded-xl object-cover border border-zinc-700/80 shadow-inner shrink-0"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center uppercase shadow-inner shrink-0">
-                    {userName.charAt(0)}
-                  </div>
-                )}
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-zinc-700/80 shadow-inner shrink-0 flex items-center justify-center">
+                  {avatarUrl ? (
+                    isEmoji ? (
+                      <div className="w-full h-full bg-gradient-to-tr from-amber-500/25 via-[#1c1c20] to-zinc-800 flex items-center justify-center text-sm select-none">
+                        <span>{avatarUrl}</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={avatarUrl}
+                        alt="Perfil"
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    )
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center uppercase shadow-inner">
+                      {userName.charAt(0)}
+                    </div>
+                  )}
+                </div>
                 <div className="hidden lg:flex flex-col text-left">
                   <span className="text-xs font-bold text-white group-hover:text-[#00a2ff] transition-colors truncate max-w-[120px] leading-tight">
                     {userName}

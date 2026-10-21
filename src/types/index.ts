@@ -42,6 +42,7 @@ export interface Profile {
   bio?: string;
   email?: string;
   created_at?: string;
+  favorite_sport?: string;
 }
 
 export interface Team {
