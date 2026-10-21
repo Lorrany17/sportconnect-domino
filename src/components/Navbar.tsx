@@ -2,9 +2,12 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Users, ClipboardList, Network, Radio, LogIn, LogOut, LayoutDashboard, Sun, Moon, X } from "lucide-react";
+import { Users, ClipboardList, Network, Radio, LogIn, LogOut, LayoutDashboard, Sun, Moon, Sparkles, Compass } from "lucide-react";
 import { useTournament } from "@/context/TournamentContext";
+import { useAuth } from "@/context/AuthProvider";
 import { useTheme } from "next-themes";
+import CreateTournamentModal from "@/components/CreateTournamentModal";
+import AuthModal from "@/components/AuthModal";
 
 interface NavbarProps {
   activeTab?: string;
@@ -25,30 +28,21 @@ export default function Navbar({
     tournaments,
     currentTournamentId,
     setCurrentTournamentId,
-    handleCreateTournament
+    currentSportType,
   } = useTournament();
+  const { user, signOut } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
   const [showNewTournamentModal, setShowNewTournamentModal] = React.useState(false);
-  const [newTournamentName, setNewTournamentName] = React.useState("");
-  const [isCreating, setIsCreating] = React.useState(false);
+  const [showAuthModal, setShowAuthModal] = React.useState(false);
 
+  const isOrganized = isAdmin || !!user;
   const currentTournament = tournaments.find((t) => t.id === currentTournamentId);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTournamentName.trim()) return;
-    setIsCreating(true);
-    try {
-      await handleCreateTournament(newTournamentName.trim());
-      setNewTournamentName("");
-      setShowNewTournamentModal(false);
-    } catch (err) {
-      alert("Erro ao criar torneio");
-    } finally {
-      setIsCreating(false);
-    }
+  const handleLogout = async () => {
+    logout();
+    await signOut();
   };
 
   React.useEffect(() => {
@@ -80,8 +74,31 @@ export default function Navbar({
   const teamCount = teams.length;
   const activeMatchCount = matches.filter((m) => m.status === "LIVE").length;
 
+  const teamTabLabel =
+    currentSportType === "PING_PONG"
+      ? "Gestão de Atletas"
+      : currentSportType === "FUTSAL" || currentSportType === "VOLEI"
+      ? "Gestão de Equipes"
+      : "Gestão de Duplas";
+
+  const teamBadgeLabel =
+    currentSportType === "PING_PONG"
+      ? "Atletas"
+      : currentSportType === "FUTSAL" || currentSportType === "VOLEI"
+      ? "Equipes"
+      : "Duplas";
+
+  const sportTitleLabel =
+    currentSportType === "FUTSAL"
+      ? "Torneio de Futsal"
+      : currentSportType === "VOLEI"
+      ? "Torneio de Vôlei"
+      : currentSportType === "PING_PONG"
+      ? "Torneio de Ping Pong"
+      : "Torneio de Dominó";
+
   const tabs = [
-    { id: "teams", name: "Gestão de Duplas", icon: Users },
+    { id: "teams", name: teamTabLabel, icon: Users },
     { id: "referee", name: "Área do Árbitro (Súmula)", icon: ClipboardList },
     { id: "bracket", name: "Árvore de Confrontos", icon: Network },
   ];
@@ -103,26 +120,68 @@ export default function Navbar({
   );
 
   const adminActions = isAdminLayout ? (
-    <button
-      onClick={logout}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/10 border border-red-500/20 hover:bg-red-600/20 text-xs font-bold text-red-500 hover:text-red-400 transition-all cursor-pointer shrink-0"
-    >
-      <LogOut className="h-3.5 w-3.5" />
-      <span>Sair</span>
-    </button>
+    <div className="flex items-center gap-1.5 shrink-0">
+      <Link
+        href="/hub"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-750 hover:bg-zinc-800 text-xs font-bold text-zinc-200 hover:text-white transition-all cursor-pointer shadow-sm"
+        title="Voltar ao Hub Central"
+      >
+        <Sparkles className="h-3.5 w-3.5 text-[#00a2ff]" />
+        <span className="hidden lg:inline">Hub</span>
+      </Link>
+      <Link
+        href="/explorar"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-750 hover:bg-zinc-800 text-xs font-bold text-zinc-200 hover:text-white transition-all cursor-pointer shadow-sm"
+        title="Explorar Torneios"
+      >
+        <Compass className="h-3.5 w-3.5 text-[#00a2ff]" />
+        <span className="hidden lg:inline">Explorar</span>
+      </Link>
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-750 hover:bg-zinc-800 text-xs font-bold text-zinc-200 hover:text-white transition-all cursor-pointer shadow-sm"
+        title="Ver Dashboard Operacional"
+      >
+        <LayoutDashboard className="h-3.5 w-3.5 text-[#00a2ff]" />
+        <span className="hidden lg:inline">Dashboard</span>
+      </Link>
+      <button
+        onClick={handleLogout}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/10 border border-red-500/20 hover:bg-red-600/20 text-xs font-bold text-red-500 hover:text-red-400 transition-all cursor-pointer shrink-0"
+      >
+        <LogOut className="h-3.5 w-3.5" />
+        <span>Sair</span>
+      </button>
+    </div>
   ) : (
     <>
-      {isAdmin ? (
+      {isOrganized ? (
         <div className="flex items-center gap-1.5 shrink-0">
           <Link
-            href="/admin"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-electric text-xs font-bold text-white hover:bg-brand-electric/80 transition-all cursor-pointer shadow-lg shadow-brand-electric/20"
+            href="/hub"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#f2ece0] dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer shadow-sm"
+            title="Ir para o Hub Central"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-[#00a2ff]" />
+            <span className="hidden md:inline">Hub</span>
+          </Link>
+          <Link
+            href="/explorar"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#f2ece0] dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer shadow-sm"
+            title="Explorar Torneios"
+          >
+            <Compass className="h-3.5 w-3.5 text-[#00a2ff]" />
+            <span className="hidden md:inline">Explorar</span>
+          </Link>
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00a2ff] text-xs font-bold text-white hover:bg-blue-600 transition-all cursor-pointer shadow-lg shadow-blue-500/20"
           >
             <LayoutDashboard className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Painel Admin</span>
+            <span className="hidden sm:inline">Dashboard</span>
           </Link>
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f2ece0] dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border hover:bg-[#d8ccb4]/40 dark:hover:bg-neutral-700 text-xs font-bold text-stone-600 hover:text-[#3b342e] dark:text-brand-text-muted dark:hover:text-white transition-all cursor-pointer"
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -130,13 +189,13 @@ export default function Navbar({
           </button>
         </div>
       ) : (
-        <Link
-          href="/admin"
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-electric text-xs font-bold text-white hover:bg-brand-electric/85 transition-all cursor-pointer shadow-lg shadow-brand-electric/25 shrink-0"
+        <button
+          onClick={() => setShowAuthModal(true)}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#00a2ff] text-xs font-bold text-white hover:bg-blue-600 transition-all cursor-pointer shadow-lg shadow-blue-500/25 shrink-0"
         >
           <LogIn className="h-3.5 w-3.5" />
           <span>Acessar Painel</span>
-        </Link>
+        </button>
       )}
     </>
   );
@@ -158,7 +217,7 @@ export default function Navbar({
               />
               <div>
                 <div className="text-[9px] sm:text-[10px] font-semibold text-brand-text-muted tracking-widest uppercase">
-                  Torneio de Dominó
+                  {sportTitleLabel}
                 </div>
               </div>
             </div>
@@ -201,7 +260,7 @@ export default function Navbar({
               <div className="flex items-center gap-1.5 rounded-lg bg-[#d8ccb4]/20 dark:bg-neutral-900/80 border border-[#d8ccb4] dark:border-brand-border px-2 py-1 md:px-3 md:py-1.5 text-xs">
                 <Users className="h-3.5 w-3.5 text-brand-electric-light" />
                 <span className="font-bold text-stone-500 dark:text-brand-text-muted text-[10px] sm:text-xs">
-                  Duplas: <span className="text-[#3b342e] dark:text-brand-text font-black">{teamCount}</span>
+                  {teamBadgeLabel}: <span className="text-[#3b342e] dark:text-brand-text font-black">{teamCount}</span>
                 </span>
               </div>
 
@@ -254,54 +313,16 @@ export default function Navbar({
       )}
 
       {/* Modal de Criação de Torneio */}
-      {showNewTournamentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="glass-panel w-full max-w-md rounded-2xl p-6 border border-brand-border/60 shadow-2xl bg-[#f2ece0] dark:bg-neutral-950">
-            <div className="flex justify-between items-center border-b border-brand-border/40 pb-4 mb-4">
-              <h3 className="text-lg font-black uppercase text-[#3b342e] dark:text-white tracking-wide">
-                Criar Novo Torneio
-              </h3>
-              <button
-                onClick={() => setShowNewTournamentModal(false)}
-                className="text-neutral-500 hover:text-[#3b342e] dark:hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-brand-text-muted mb-2">
-                  Nome do Campeonato
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newTournamentName}
-                  onChange={(e) => setNewTournamentName(e.target.value)}
-                  placeholder="Ex: Campeonato de Primavera 2026"
-                  className="w-full px-4 py-3 rounded-xl bg-white dark:bg-neutral-900 border border-[#d8ccb4] dark:border-brand-border focus:border-brand-electric focus:ring-1 focus:ring-brand-electric outline-none text-sm transition-all text-[#3b342e] dark:text-white placeholder:text-stone-500 dark:placeholder:text-neutral-600"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowNewTournamentModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-neutral-350 dark:border-neutral-700 text-stone-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-all font-bold text-xs uppercase tracking-wider cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreating}
-                  className="px-5 py-2.5 rounded-xl bg-brand-electric hover:bg-brand-electric-hover text-white transition-all font-bold text-xs uppercase tracking-wider cursor-pointer shadow-md shadow-brand-electric/15 disabled:opacity-50"
-                >
-                  {isCreating ? "Criando..." : "Criar Torneio"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CreateTournamentModal
+        isOpen={showNewTournamentModal}
+        onClose={() => setShowNewTournamentModal(false)}
+      />
+
+      {/* Modal de Autenticação Supabase (Login/Cadastro) */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </header>
   );
 }

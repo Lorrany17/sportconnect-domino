@@ -31,4 +31,149 @@ BEGIN
         UPDATE public.teams SET tournament_id = legacy_id WHERE tournament_id IS NULL;
         UPDATE public.matches SET tournament_id = legacy_id WHERE tournament_id IS NULL;
     END IF;
+-- 4. Criar tabela de perfis para Super Admins se não existir
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    full_name TEXT,
+    is_admin BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. Adicionar colunas adicionais na tabela tournaments
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS sport_type TEXT DEFAULT 'DOMINO';
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS max_teams INTEGER DEFAULT 16;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS entry_fee NUMERIC DEFAULT 100.00;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS location TEXT;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS start_date TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS end_date TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS rules TEXT;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS format TEXT;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS cover_url TEXT;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS organizer_pix_key TEXT;
+
+-- 6. Configuração do bucket de Storage 'covers' para fotos de capa
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('covers', 'covers', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Políticas de acesso para o bucket 'covers'
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir leitura pública das capas'
+    ) THEN
+        CREATE POLICY "Permitir leitura pública das capas" 
+        ON storage.objects FOR SELECT 
+        USING (bucket_id = 'covers');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir upload de capas'
+    ) THEN
+        CREATE POLICY "Permitir upload de capas" 
+        ON storage.objects FOR INSERT 
+        WITH CHECK (bucket_id = 'covers');
+    END IF;
 END $$;
+
+-- 7. Adicionar colunas de gestão de inscrições e pagamentos na tabela teams
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'PENDING';
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS payment_proof_url TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS manager_name TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Amador A';
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS roster JSONB;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS contact TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+-- 8. Configuração do bucket de Storage 'receipts' para comprovantes de pagamento Pix
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('receipts', 'receipts', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Políticas de acesso para o bucket 'receipts'
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir leitura pública dos comprovantes'
+    ) THEN
+        CREATE POLICY "Permitir leitura pública dos comprovantes" 
+        ON storage.objects FOR SELECT 
+        USING (bucket_id = 'receipts');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir upload de comprovantes'
+    ) THEN
+        CREATE POLICY "Permitir upload de comprovantes" 
+        ON storage.objects FOR INSERT 
+        WITH CHECK (bucket_id = 'receipts');
+    END IF;
+END $$;
+
+-- 9. Permitir status 'CANCELADO' e 'EM_ANDAMENTO' na tabela tournaments
+ALTER TABLE public.tournaments DROP CONSTRAINT IF EXISTS tournaments_status_check;
+ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_status_check CHECK (status IN ('ATIVO', 'FINALIZADO', 'CANCELADO', 'EM_ANDAMENTO'));
+
+-- 10. Suporte a Webhooks do Mercado Pago e Cancelamento/Estorno
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS mp_payment_id TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS cancellation_status TEXT;
+
+-- 11. Políticas de Storage para o Bucket 'covers'
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('covers', 'covers', true) 
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir leitura pública das capas'
+    ) THEN
+        CREATE POLICY "Permitir leitura pública das capas" 
+        ON storage.objects FOR SELECT 
+        USING (bucket_id = 'covers');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir upload de capas'
+    ) THEN
+        CREATE POLICY "Permitir upload de capas" 
+        ON storage.objects FOR INSERT 
+        WITH CHECK (bucket_id = 'covers');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir update de capas'
+    ) THEN
+        CREATE POLICY "Permitir update de capas" 
+        ON storage.objects FOR UPDATE 
+        USING (bucket_id = 'covers');
+    END IF;
+END $$;
+
+-- 12. Tabela de Gestão de Equipe e RBAC (Compartilhamento de Torneio)
+CREATE TABLE IF NOT EXISTS public.tournament_staff (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tournament_id UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('ADMIN', 'REFEREE', 'SCOREKEEPER')),
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(tournament_id, email)
+);
+
+ALTER TABLE public.tournament_staff ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Permitir leitura de tournament_staff para autenticados" 
+ON public.tournament_staff FOR SELECT 
+TO authenticated 
+USING (true);
+
+CREATE POLICY "Permitir insert/update/delete de tournament_staff para autenticados" 
+ON public.tournament_staff FOR ALL 
+TO authenticated 
+USING (true)
+WITH CHECK (true);
+
+
+

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat, Outfit } from "next/font/google";
 import { TournamentProvider } from "@/context/TournamentContext";
+import { AuthProvider } from "@/context/AuthProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
@@ -17,8 +18,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "SportConnect | Tournament Engine (Dominó em Duplas)",
-  description: "Motor operacional para torneios de Dominó em Duplas do ecossistema SportConnect. Gerenciamento de partidas, súmula digital e chaveamento em tempo real.",
+  title: "SportConnect | Plataforma de Torneios e Gestão Esportiva",
+  description: "Plataforma multiesportes para organização de torneios, inscrições, súmula digital e chaveamento em tempo real.",
 };
 
 export default function RootLayout({
@@ -30,9 +31,11 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning className={`${montserrat.variable} ${outfit.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-[#f2ece0] dark:bg-[#0a0a0a]">
         <ThemeProvider>
-          <TournamentProvider>
-            {children}
-          </TournamentProvider>
+          <AuthProvider>
+            <TournamentProvider>
+              {children}
+            </TournamentProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
