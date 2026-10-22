@@ -32,7 +32,18 @@ import {
   Shield,
   Clock,
   CheckCircle2,
+  Wifi,
+  WifiOff,
+  Radio,
+  Terminal,
+  Send,
+  Database,
+  Zap,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import { RealtimeChannel } from "@supabase/supabase-js";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
@@ -45,7 +56,17 @@ interface OrganizerProfile {
   email?: string;
 }
 
-type AdminTab = "overview" | "tournaments" | "users";
+export interface RealtimeLogEntry {
+  id: string;
+  timestamp: string;
+  type: "postgres" | "broadcast" | "presence" | "system" | "error";
+  title: string;
+  table?: string;
+  eventType?: string;
+  details?: any;
+}
+
+type AdminTab = "overview" | "tournaments" | "users" | "websocket";
 
 const SPORT_META: Record<string, { label: string; icon: string; color: string }> = {
   DOMINO: { label: "Dominó", icon: "🁓", color: "text-amber-400" },
@@ -81,6 +102,120 @@ export default function AdminPage() {
   // Filtros da Aba Utilizadores
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState<string>("ALL");
+
+  // =========================================================
+  // ESTADOS E REFS DO WEBSOCKET / REALTIME
+  // =========================================================
+  const [wsStatus, setWsStatus] = useState<
+    "CONNECTING" | "SUBSCRIBED" | "CLOSED" | "CHANNEL_ERROR" | "TIMED_OUT"
+  >("CONNECTING");
+  const [latency, setLatency] = useState<number | null>(null);
+  const [isPinging, setIsPinging] = useState(false);
+
+  // Feed de Eventos e Estatísticas
+  const [realtimeLogs, setRealtimeLogs] = useState<RealtimeLogEntry[]>([]);
+  const [logFilter, setLogFilter] = useState<string>("ALL");
+  const [totalWsEvents, setTotalWsEvents] = useState<number>(0);
+
+  // Broadcast e Presença
+  const [broadcastInput, setBroadcastInput] = useState<string>("");
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<{ id: string; name: string; onlineAt: string }[]>([]);
+
+  // Feedback Visual
+  const [liveToast, setLiveToast] = useState<{ id: string; message: string; type: "create" | "update" | "delete" | "info" } | null>(null);
+  const [highlightedTournId, setHighlightedTournId] = useState<string | null>(null);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+
+  // Refs de Canal e Medição de Tempo
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const pingTimestampRef = useRef<number>(0);
+
+  // Adiciona uma linha formatada no console de eventos WebSocket
+  const addLog = (
+    type: "postgres" | "broadcast" | "presence" | "system" | "error",
+    title: string,
+    details?: any,
+    table?: string,
+    eventType?: string
+  ) => {
+    const entry: RealtimeLogEntry = {
+      id: Math.random().toString(36).substring(2, 9),
+      timestamp: new Date().toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        fractionalSecondDigits: 3,
+      }),
+      type,
+      title,
+      table,
+      eventType,
+      details,
+    };
+    setRealtimeLogs((prev) => [entry, ...prev.slice(0, 99)]);
+    setTotalWsEvents((prev) => prev + 1);
+  };
+
+  // Dispara um toast flutuante no canto da tela e dá destaque na linha do torneio
+  const triggerLiveToast = (message: string, type: "create" | "update" | "delete" | "info" = "info", tournId?: string) => {
+    const toastId = Math.random().toString(36).substring(2, 8);
+    setLiveToast({ id: toastId, message, type });
+    if (tournId) {
+      setHighlightedTournId(tournId);
+      setTimeout(() => setHighlightedTournId(null), 4000);
+    }
+    setTimeout(() => {
+      setLiveToast((prev) => (prev?.id === toastId ? null : prev));
+    }, 4500);
+  };
+
+  // Disparo do Ping WebSocket
+  const sendWebSocketPing = async (targetChannel?: RealtimeChannel | null) => {
+    const ch = targetChannel || channelRef.current;
+    if (!ch) return;
+    try {
+      setIsPinging(true);
+      const now = Date.now();
+      pingTimestampRef.current = now;
+      await ch.send({
+        type: "broadcast",
+        event: "ping",
+        payload: {
+          sentAt: now,
+          sender: user?.email || "admin",
+        },
+      });
+    } catch (err: any) {
+      setIsPinging(false);
+      addLog("error", "Falha ao enviar Ping WebSocket", err);
+    }
+  };
+
+  // Envio de Broadcast Manual
+  const handleSendBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastInput.trim() || !channelRef.current) return;
+    try {
+      setIsSendingBroadcast(true);
+      const text = broadcastInput.trim();
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "system_alert",
+        payload: {
+          text,
+          sender: user?.email || "Super Admin",
+          sentAt: Date.now(),
+        },
+      });
+      setBroadcastInput("");
+      addLog("broadcast", `Você enviou broadcast: "${text}"`);
+    } catch (err: any) {
+      addLog("error", "Falha ao transmitir broadcast", err);
+    } finally {
+      setIsSendingBroadcast(false);
+    }
+  };
 
   // Fecha dropdowns de usuário ao clicar fora
   useEffect(() => {
@@ -204,6 +339,144 @@ export default function AdminPage() {
       mounted = false;
     };
   }, [user, router]);
+
+  // =========================================================
+  // CONEXÃO WEBSOCKET / REALTIME (SUPABASE)
+  // =========================================================
+  useEffect(() => {
+    if (!user) return;
+    addLog("system", "Iniciando conexão WebSocket na Central do Sistema...");
+    setWsStatus("CONNECTING");
+    const channelName = "central-sistema-realtime";
+    const clientName = user.email || user.id || "SuperAdmin";
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: true },
+        presence: { key: clientName },
+      },
+    });
+
+    // 1. Broadcast: Ping (Cálculo de latência RTT) e Alertas
+    channel
+      .on("broadcast", { event: "ping" }, (payload: any) => {
+        const now = Date.now();
+        const sentAt = payload.payload?.sentAt || pingTimestampRef.current;
+        if (sentAt) {
+          const rtt = Math.max(1, now - sentAt);
+          setLatency(rtt);
+          setIsPinging(false);
+          addLog("broadcast", `Ping WebSocket retornado! RTT: ${rtt}ms`, payload);
+        }
+      })
+      .on("broadcast", { event: "system_alert" }, (payload: any) => {
+        const msg = payload.payload?.text || "Alerta do Sistema";
+        const sender = payload.payload?.sender || "Sistema";
+        addLog("broadcast", `[Alerta de ${sender}]: ${msg}`, payload);
+        triggerLiveToast(`🔔 ${sender}: ${msg}`, "info");
+      });
+
+    // 2. Presença: Usuários online no canal
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const users: { id: string; name: string; onlineAt: string }[] = [];
+        Object.keys(state).forEach((k) => {
+          const list = state[k] as any[];
+          list.forEach((p) => {
+            users.push({
+              id: p.presence_ref || k,
+              name: p.name || k,
+              onlineAt: p.onlineAt || new Date().toISOString(),
+            });
+          });
+        });
+        setOnlineUsers(users);
+        addLog("presence", `Presença sincronizada (${users.length} usuários online)`, users);
+      })
+      .on("presence", { event: "join" }, ({ key, newPresences }: any) => {
+        addLog("presence", `Usuário conectou ao WebSocket: ${key}`, newPresences);
+      })
+      .on("presence", { event: "leave" }, ({ key, leftPresences }: any) => {
+        addLog("presence", `Usuário desconectou do WebSocket: ${key}`, leftPresences);
+      });
+
+    // 3. Postgres Changes: Sincronização em tempo real da tabela "tournaments"
+    channel
+      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, async (payload: any) => {
+        const eventType = payload.eventType; // 'INSERT' | 'UPDATE' | 'DELETE'
+        const newRow = payload.new;
+        const oldRow = payload.old;
+        addLog("postgres", `Alteração em "tournaments" [${eventType}]`, payload, "tournaments", eventType);
+
+        if (eventType === "INSERT" && newRow) {
+          const newTournament: Tournament = {
+            id: newRow.id,
+            name: newRow.name || "Novo Torneio",
+            status: newRow.status || "ATIVO",
+            createdAt: newRow.created_at || new Date().toISOString(),
+            sport_type: (newRow.sport_type as SportType) || "DOMINO",
+            format: newRow.format,
+            owner_id: newRow.owner_id,
+            max_teams: newRow.max_teams ? Number(newRow.max_teams) : 16,
+            entry_fee: newRow.entry_fee ? Number(newRow.entry_fee) : 0,
+            location: newRow.location,
+            start_date: newRow.start_date,
+            end_date: newRow.end_date,
+            cover_url: newRow.cover_url,
+            rules: newRow.rules,
+            organizer_pix_key: newRow.organizer_pix_key,
+          };
+          setTournaments((prev) => [newTournament, ...prev.filter((t) => t.id !== newRow.id)]);
+          triggerLiveToast(`✨ Novo torneio criado via WebSocket: "${newRow.name}"`, "create", newRow.id);
+        } else if (eventType === "UPDATE" && newRow) {
+          setTournaments((prev) =>
+            prev.map((t) => (t.id === newRow.id ? { ...t, ...newRow, createdAt: newRow.created_at || t.createdAt } : t))
+          );
+          triggerLiveToast(`⚡ Torneio atualizado via WebSocket: "${newRow.name || newRow.id}"`, "update", newRow.id);
+        } else if (eventType === "DELETE" && oldRow) {
+          setTournaments((prev) => prev.filter((t) => t.id !== oldRow.id));
+          triggerLiveToast(`🗑️ Torneio removido em tempo real.`, "delete");
+        }
+      })
+      // 4. Postgres Changes: Auditoria de "matches" e "teams"
+      .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, (payload: any) => {
+        addLog("postgres", `Alteração em "matches" [${payload.eventType}]`, payload, "matches", payload.eventType);
+        triggerLiveToast(`⚽ Partida atualizada em tempo real.`, "info");
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "teams" }, (payload: any) => {
+        addLog("postgres", `Alteração em "teams" [${payload.eventType}]`, payload, "teams", payload.eventType);
+        triggerLiveToast(`👥 Inscrição/Equipe alterada em tempo real.`, "info");
+      });
+
+    // 5. Inscrição do Canal
+    channel.subscribe(async (status: string, err?: any) => {
+      if (status === "SUBSCRIBED") {
+        setWsStatus("SUBSCRIBED");
+        addLog("system", "Canal WebSocket inscrito com sucesso! (SUBSCRIBED)", { channel: channelName });
+        await channel.track({
+          name: clientName,
+          onlineAt: new Date().toLocaleTimeString("pt-BR"),
+        });
+        sendWebSocketPing(channel);
+      } else if (status === "CLOSED") {
+        setWsStatus("CLOSED");
+      } else if (status === "CHANNEL_ERROR") {
+        setWsStatus("CHANNEL_ERROR");
+        addLog("error", "Erro no canal WebSocket", err);
+      } else if (status === "TIMED_OUT") {
+        setWsStatus("TIMED_OUT");
+      }
+    });
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [user]);
 
   // Atualização Manual de Dados
   const handleRefresh = async () => {
@@ -428,6 +701,46 @@ export default function AdminPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* WebSocket Status & Ping Trigger */}
+              <button
+                type="button"
+                onClick={() => sendWebSocketPing()}
+                disabled={isPinging}
+                className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all shadow-sm cursor-pointer ${
+                  wsStatus === "SUBSCRIBED"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                    : wsStatus === "CONNECTING"
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                    : "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
+                }`}
+                title="Clique para testar o Ping WebSocket (RTT)"
+              >
+                {wsStatus === "SUBSCRIBED" ? (
+                  <>
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    <span>WebSocket Ativo</span>
+                    {latency !== null && (
+                      <span className="text-[10px] bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-300 font-mono">
+                        {isPinging ? "..." : `${latency}ms`}
+                      </span>
+                    )}
+                  </>
+                ) : wsStatus === "CONNECTING" ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin text-amber-400" />
+                    <span>Conectando WS...</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-3 w-3 text-red-400" />
+                    <span>WS Desconectado</span>
+                  </>
+                )}
+              </button>
+
               <button
                 type="button"
                 onClick={handleRefresh}
@@ -588,6 +901,22 @@ export default function AdminPage() {
             >
               <Users className="h-4 w-4" />
               <span>Gestão de Utilizadores ({usersList.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("websocket")}
+              className={`px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap relative ${
+                activeTab === "websocket"
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-600/25 border border-purple-400/30"
+                  : "bg-[#141416] text-zinc-400 hover:text-white hover:bg-zinc-800 border border-[#27272a]"
+              }`}
+            >
+              <Radio className="h-4 w-4 text-emerald-400" />
+              <span>Monitor & Diagnóstico WebSocket</span>
+              <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] text-emerald-300 font-mono">
+                LIVE
+              </span>
             </button>
           </div>
 
@@ -808,11 +1137,14 @@ export default function AdminPage() {
                           };
                           const org = t.owner_id ? organizers[t.owner_id] : null;
                           const rawStatus = (t.status || "ATIVO").toUpperCase();
-
                           return (
                             <tr
                               key={t.id}
-                              className="hover:bg-zinc-800/40 transition-colors group"
+                              className={`transition-colors group ${
+                                highlightedTournId === t.id
+                                  ? "bg-purple-950/40 ring-1 ring-purple-500 animate-pulse"
+                                  : "hover:bg-zinc-800/40"
+                              }`}
                             >
                               <td className="py-4 px-6">
                                 <div className="flex items-center gap-3">
@@ -1190,7 +1522,343 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* ========================================================= */}
+          {/* CONTEÚDO DA ABA 4: MONITOR & DIAGNÓSTICO WEBSOCKET */}
+          {/* ========================================================= */}
+          {activeTab === "websocket" && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Cards de Métricas de Rede / WebSocket */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Status do Canal */}
+                <div className="p-5 rounded-2xl bg-[#121214] border border-[#27272a] space-y-2 shadow-md">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-zinc-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Radio className="h-4 w-4 text-purple-400" />
+                      <span>Status do Canal</span>
+                    </span>
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        wsStatus === "SUBSCRIBED"
+                          ? "bg-emerald-500 shadow-lg shadow-emerald-500/50"
+                          : wsStatus === "CONNECTING"
+                          ? "bg-amber-500 animate-pulse"
+                          : "bg-red-500"
+                      }`}
+                    />
+                  </div>
+                  <div className="text-2xl font-black text-white font-mono tracking-tight">
+                    {wsStatus}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 font-mono truncate">
+                    Canal: central-sistema-realtime
+                  </p>
+                </div>
+
+                {/* 2. Latência RTT */}
+                <div className="p-5 rounded-2xl bg-[#121214] border border-[#27272a] space-y-2 shadow-md">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-zinc-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Activity className="h-4 w-4 text-emerald-400" />
+                      <span>Latência (RTT)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => sendWebSocketPing()}
+                      disabled={isPinging}
+                      className="text-[10px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-all cursor-pointer"
+                    >
+                      <RefreshCw className={`h-2.5 w-2.5 ${isPinging ? "animate-spin" : ""}`} />
+                      <span>Testar Ping</span>
+                    </button>
+                  </div>
+                  <div className="text-2xl font-black text-emerald-400 font-mono">
+                    {isPinging ? (
+                      <span className="text-sm text-zinc-400 animate-pulse">Medindo...</span>
+                    ) : latency !== null ? (
+                      `${latency} ms`
+                    ) : (
+                      <span className="text-zinc-600">—</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-zinc-500">
+                    Round-trip time com Supabase
+                  </p>
+                </div>
+
+                {/* 3. Total de Eventos Capturados */}
+                <div className="p-5 rounded-2xl bg-[#121214] border border-[#27272a] space-y-2 shadow-md">
+                  <span className="text-[11px] text-zinc-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap className="h-4 w-4 text-amber-400" />
+                    <span>Eventos Capturados</span>
+                  </span>
+                  <div className="text-2xl font-black text-amber-400 font-mono">
+                    {totalWsEvents}
+                  </div>
+                  <p className="text-[11px] text-zinc-500">
+                    {realtimeLogs.length} logs mantidos na sessão
+                  </p>
+                </div>
+
+                {/* 4. Presença Online */}
+                <div className="p-5 rounded-2xl bg-[#121214] border border-[#27272a] space-y-2 shadow-md">
+                  <span className="text-[11px] text-zinc-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <Users className="h-4 w-4 text-blue-400" />
+                    <span>Usuários no Canal</span>
+                  </span>
+                  <div className="text-2xl font-black text-blue-400 font-mono">
+                    {onlineUsers.length}
+                  </div>
+                  <p className="text-[11px] text-zinc-500">
+                    Clientes sincronizados via Presence
+                  </p>
+                </div>
+              </div>
+
+              {/* Seção Central: Broadcast e Presença */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Transmissor de Broadcast */}
+                <div className="lg:col-span-2 bg-[#121214] border border-[#27272a] rounded-3xl p-6 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#27272a] pb-3">
+                    <div className="space-y-0.5">
+                      <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                        <Send className="h-4 w-4 text-purple-400" />
+                        <span>Transmissor de Broadcast (Alerta Global)</span>
+                      </h3>
+                      <p className="text-xs text-zinc-500">
+                        Envie um alerta em tempo real para todos os clientes e administradores conectados a este canal.
+                      </p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSendBroadcast} className="space-y-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={broadcastInput}
+                        onChange={(e) => setBroadcastInput(e.target.value)}
+                        placeholder="Ex: Manutenção agendada para 22h ou Inscrições prorrogadas..."
+                        className="flex-1 px-4 py-3 bg-[#18181b] border border-[#27272a] focus:border-purple-500 rounded-2xl text-xs text-white placeholder-zinc-500 outline-none transition-all"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSendingBroadcast || !broadcastInput.trim()}
+                        className="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:hover:bg-purple-600 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-lg shadow-purple-600/30 cursor-pointer active:scale-95"
+                      >
+                        {isSendingBroadcast ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                        <span>Transmitir</span>
+                      </button>
+                    </div>
+                    <div className="text-[11px] text-zinc-500 flex items-center gap-2">
+                      <span className="flex h-1.5 w-1.5 rounded-full bg-purple-400" />
+                      <span>Dispara notificação flutuante com feedback visual instantâneo em todas as telas conectadas.</span>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Usuários Conectados (Presence) */}
+                <div className="bg-[#121214] border border-[#27272a] rounded-3xl p-6 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#27272a] pb-3">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                      <Users className="h-4 w-4 text-emerald-400" />
+                      <span>Presença ({onlineUsers.length})</span>
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-300 font-mono">
+                      SYNC
+                    </span>
+                  </div>
+
+                  {onlineUsers.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-zinc-500">
+                      Nenhum outro usuário detectado no canal.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                      {onlineUsers.map((u, idx) => (
+                        <div
+                          key={`${u.id}-${idx}`}
+                          className="p-3 rounded-xl bg-[#18181b] border border-[#27272a] flex items-center justify-between gap-2"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
+                            <span className="text-xs font-bold text-zinc-200 truncate">
+                              {u.name}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-zinc-500 font-mono shrink-0">
+                            {u.onlineAt}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Console de Diagnóstico Realtime */}
+              <div className="bg-[#0f0f12] border border-[#27272a] rounded-3xl overflow-hidden shadow-2xl">
+                {/* Console Header */}
+                <div className="px-6 py-4 bg-[#141418] border-b border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex gap-1.5">
+                      <span className="h-3 w-3 rounded-full bg-red-500/80 inline-block" />
+                      <span className="h-3 w-3 rounded-full bg-amber-500/80 inline-block" />
+                      <span className="h-3 w-3 rounded-full bg-emerald-500/80 inline-block" />
+                    </div>
+                    <span className="text-xs font-mono font-bold text-zinc-300 flex items-center gap-1.5 ml-2">
+                      <Terminal className="h-3.5 w-3.5 text-purple-400" />
+                      <span>Console de Eventos Realtime</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-[10px] text-zinc-400 font-mono">
+                      {realtimeLogs.length}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Filtros de Tipo */}
+                    <div className="flex items-center gap-1 bg-[#18181b] p-1 rounded-xl border border-zinc-800">
+                      {(["ALL", "postgres", "broadcast", "presence", "system", "error"] as const).map(
+                        (f) => (
+                          <button
+                            key={f}
+                            type="button"
+                            onClick={() => setLogFilter(f)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                              logFilter === f
+                                ? "bg-purple-600 text-white shadow-sm"
+                                : "text-zinc-400 hover:text-white"
+                            }`}
+                          >
+                            {f}
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    {/* Botão Limpar Logs */}
+                    <button
+                      type="button"
+                      onClick={() => setRealtimeLogs([])}
+                      className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-red-400 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      title="Limpar console"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Limpar</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Console Log List */}
+                <div className="p-4 font-mono text-xs max-h-[520px] overflow-y-auto space-y-2">
+                  {realtimeLogs
+                    .filter((l) => (logFilter === "ALL" ? true : l.type === logFilter))
+                    .length === 0 ? (
+                    <div className="py-16 text-center text-zinc-600 space-y-2">
+                      <Terminal className="h-8 w-8 text-zinc-700 mx-auto" />
+                      <p className="text-xs">Nenhum evento registrado no console com os filtros atuais.</p>
+                      <p className="text-[10px] text-zinc-700">
+                        Eventos de banco (INSERT/UPDATE/DELETE), pings e broadcasts aparecerão aqui em tempo real.
+                      </p>
+                    </div>
+                  ) : (
+                    realtimeLogs
+                      .filter((l) => (logFilter === "ALL" ? true : l.type === logFilter))
+                      .map((log) => {
+                        const typeBadgeColor =
+                          log.type === "postgres"
+                            ? "bg-blue-500/15 border-blue-500/40 text-blue-300"
+                            : log.type === "broadcast"
+                            ? "bg-purple-500/15 border-purple-500/40 text-purple-300"
+                            : log.type === "presence"
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                            : log.type === "error"
+                            ? "bg-red-500/15 border-red-500/40 text-red-300"
+                            : "bg-zinc-800 border-zinc-700 text-zinc-400";
+
+                        const isExpanded = expandedLogId === log.id;
+
+                        return (
+                          <div
+                            key={log.id}
+                            className="p-3 rounded-xl bg-[#141418] border border-zinc-800/80 hover:border-zinc-700 transition-all space-y-2"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[10px] text-zinc-500">
+                                  [{log.timestamp}]
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase ${typeBadgeColor}`}
+                                >
+                                  {log.type}
+                                </span>
+                                {log.table && (
+                                  <span className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 text-[10px] text-zinc-300 flex items-center gap-1">
+                                    <Database className="h-2.5 w-2.5 text-purple-400" />
+                                    <span>{log.table}</span>
+                                    {log.eventType && (
+                                      <span className="text-purple-300 font-bold">
+                                        :{log.eventType}
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
+                                <span className="text-zinc-200 font-semibold text-xs">
+                                  {log.title}
+                                </span>
+                              </div>
+
+                              {log.details && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedLogId(isExpanded ? null : log.id)
+                                  }
+                                  className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer px-2 py-0.5 rounded hover:bg-zinc-800 transition-colors shrink-0"
+                                >
+                                  <span>{isExpanded ? "Ocultar" : "Detalhes"}</span>
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
+
+                            {isExpanded && log.details && (
+                              <pre className="p-3 rounded-lg bg-[#0a0a0c] border border-zinc-800 text-[11px] text-zinc-300 overflow-x-auto leading-relaxed">
+                                {JSON.stringify(log.details, null, 2)}
+                              </pre>
+                            )}
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </main>
+
+        {/* ========================================================= */}
+        {/* TOAST FLUTUANTE WEBSOCKET / REALTIME */}
+        {/* ========================================================= */}
+        {liveToast && (
+          <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#18181b]/95 backdrop-blur-md border border-purple-500/40 text-white shadow-2xl shadow-purple-950/50">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+              </span>
+              <p className="text-xs font-semibold text-zinc-100">{liveToast.message}</p>
+            </div>
+          </div>
+        )}
       </div>
     </ProtectedRoute>
   );

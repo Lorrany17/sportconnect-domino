@@ -38,7 +38,9 @@ export async function middleware(request: NextRequest) {
   // 3. Se houver token, valida a autenticidade da sessão junto ao Supabase
   if (sbToken) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseAnonKey =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
     if (supabaseUrl && supabaseAnonKey) {
       try {
