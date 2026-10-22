@@ -14,8 +14,10 @@ import {
   Loader2,
   LogIn,
   UserPlus,
+  Phone,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthProvider";
+import { formatPhoneBR } from "@/app/perfil/page";
 
 interface AuthModalProps {
   isOpen?: boolean;
@@ -36,6 +38,7 @@ export default function AuthModal({
 
   const [activeTab, setActiveTab] = useState<"login" | "signup">(defaultTab);
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -114,9 +117,21 @@ export default function AuthModal({
       return;
     }
 
-    if (activeTab === "signup" && !fullName.trim()) {
-      setErrorMessage("Por favor, preencha seu Nome Completo.");
-      return;
+    if (activeTab === "signup") {
+      if (!fullName.trim()) {
+        setErrorMessage("Por favor, preencha seu Nome Completo.");
+        return;
+      }
+
+      const phoneDigits = phone.replace(/\D/g, "");
+      if (!phone.trim()) {
+        setErrorMessage("Por favor, preencha seu Telefone / WhatsApp.");
+        return;
+      }
+      if (phoneDigits.length < 10) {
+        setErrorMessage("Por favor, informe um Telefone / WhatsApp válido com DDD.");
+        return;
+      }
     }
 
     if (password.length < 6) {
@@ -128,8 +143,13 @@ export default function AuthModal({
 
     try {
       if (activeTab === "signup") {
-        // Envia options.data.full_name para alimentar o Trigger da tabela profiles
-        const { data, error } = await signUp(email.trim(), password, fullName.trim());
+        // Envia options.data.full_name e phone para alimentar o Trigger da tabela profiles
+        const { data, error } = await signUp(
+          email.trim(),
+          password,
+          fullName.trim(),
+          phone.trim()
+        );
 
         if (error) {
           setErrorMessage(mapAuthError(error.message));
@@ -255,6 +275,32 @@ export default function AuthModal({
                   if (successMessage) setSuccessMessage("");
                 }}
                 placeholder="Ex: Carlos Eduardo Silva"
+                className="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-zinc-800 focus:border-[#00a2ff] focus:ring-1 focus:ring-[#00a2ff] rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 outline-none transition-all"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Campo Telefone / WhatsApp (Apenas na aba de Cadastro) */}
+        {activeTab === "signup" && (
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider block pl-1">
+              Telefone / WhatsApp <span className="text-red-400">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
+                <Phone className="h-4 w-4" />
+              </div>
+              <input
+                type="tel"
+                required={true}
+                value={phone}
+                onChange={(e) => {
+                  setPhone(formatPhoneBR(e.target.value));
+                  if (errorMessage) setErrorMessage("");
+                  if (successMessage) setSuccessMessage("");
+                }}
+                placeholder="(XX) XXXXX-XXXX"
                 className="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-zinc-800 focus:border-[#00a2ff] focus:ring-1 focus:ring-[#00a2ff] rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 outline-none transition-all"
               />
             </div>

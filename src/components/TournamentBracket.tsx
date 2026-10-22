@@ -1,6 +1,7 @@
 import React, { useState } from "react";
+import Link from "next/link";
 import { Match, Team } from "@/types";
-import { Trophy, Activity, Pencil, X, Settings, ClipboardCheck, CheckCircle } from "lucide-react";
+import { Trophy, Activity, Pencil, X, Settings, ClipboardCheck, CheckCircle, ExternalLink } from "lucide-react";
 import { TOURNAMENT_TYPE } from "@/lib/config";
 interface TournamentBracketProps {
   matches: Match[];
@@ -185,9 +186,19 @@ export default function TournamentBracket({
 
                     <div className="grid grid-cols-7 gap-3 items-center">
                       <div className="col-span-3 text-center md:text-right min-w-0">
-                        <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-wide truncate">
-                          {activeMatch.teamA.name}
-                        </h3>
+                        {activeMatch.teamA.user_id ? (
+                          <Link
+                            href={`/atleta/${activeMatch.teamA.user_id}`}
+                            title={`Ver perfil do atleta (${activeMatch.teamA.name})`}
+                            className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-wide truncate hover:text-brand-neon transition-colors block"
+                          >
+                            {activeMatch.teamA.name}
+                          </Link>
+                        ) : (
+                          <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-wide truncate">
+                            {activeMatch.teamA.name}
+                          </h3>
+                        )}
                         {isBestOf3 && (
                           <p className="text-[9px] text-neutral-500 font-bold uppercase mt-0.5">
                             {activeMatch.setsA || 0} Quadras
@@ -205,9 +216,19 @@ export default function TournamentBracket({
                       </div>
 
                       <div className="col-span-3 text-center md:text-left min-w-0">
-                        <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-wide truncate">
-                          {activeMatch.teamB.name}
-                        </h3>
+                        {activeMatch.teamB.user_id ? (
+                          <Link
+                            href={`/atleta/${activeMatch.teamB.user_id}`}
+                            title={`Ver perfil do atleta (${activeMatch.teamB.name})`}
+                            className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-wide truncate hover:text-brand-neon transition-colors block"
+                          >
+                            {activeMatch.teamB.name}
+                          </Link>
+                        ) : (
+                          <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-wide truncate">
+                            {activeMatch.teamB.name}
+                          </h3>
+                        )}
                         {isBestOf3 && (
                           <p className="text-[9px] text-neutral-500 font-bold uppercase mt-0.5">
                             {activeMatch.setsB || 0} Quadras
@@ -315,9 +336,20 @@ export default function TournamentBracket({
                                   : "text-stone-800 dark:text-white"
                               }`}
                           >
-                            <span className={`truncate max-w-[120px] ${m.teamA.id === "bye" ? "italic text-neutral-400 dark:text-neutral-500 font-normal" : ""}`} title={m.teamA.id === "bye" ? "Avanço Direto" : m.teamA.name}>
-                              {m.teamA.id === "bye" ? "Avanço Direto" : m.teamA.name}
-                            </span>
+                            {m.teamA.user_id && m.teamA.id !== "bye" && !editMode ? (
+                              <Link
+                                href={`/atleta/${m.teamA.user_id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                title={`Ver perfil do atleta (${m.teamA.name})`}
+                                className="truncate max-w-[120px] hover:text-[#00a2ff] hover:underline transition-colors font-semibold"
+                              >
+                                {m.teamA.name}
+                              </Link>
+                            ) : (
+                              <span className={`truncate max-w-[120px] ${m.teamA.id === "bye" ? "italic text-neutral-400 dark:text-neutral-500 font-normal" : ""}`} title={m.teamA.id === "bye" ? "Avanço Direto" : m.teamA.name}>
+                                {m.teamA.id === "bye" ? "Avanço Direto" : m.teamA.name}
+                              </span>
+                            )}
                             <span className="font-display font-black text-sm flex items-center gap-0.5">
                               {showSets ? (
                                 <>
@@ -350,9 +382,20 @@ export default function TournamentBracket({
                                   : "text-stone-800 dark:text-white"
                               }`}
                           >
-                            <span className={`truncate max-w-[120px] ${m.teamB.id === "bye" ? "italic text-neutral-400 dark:text-neutral-500 font-normal" : ""}`} title={m.teamB.id === "bye" ? "Avanço Direto" : m.teamB.name}>
-                              {m.teamB.id === "bye" ? "Avanço Direto" : m.teamB.name}
-                            </span>
+                            {m.teamB.user_id && m.teamB.id !== "bye" && !editMode ? (
+                              <Link
+                                href={`/atleta/${m.teamB.user_id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                title={`Ver perfil do atleta (${m.teamB.name})`}
+                                className="truncate max-w-[120px] hover:text-[#00a2ff] hover:underline transition-colors font-semibold"
+                              >
+                                {m.teamB.name}
+                              </Link>
+                            ) : (
+                              <span className={`truncate max-w-[120px] ${m.teamB.id === "bye" ? "italic text-neutral-400 dark:text-neutral-500 font-normal" : ""}`} title={m.teamB.id === "bye" ? "Avanço Direto" : m.teamB.name}>
+                                {m.teamB.id === "bye" ? "Avanço Direto" : m.teamB.name}
+                              </span>
+                            )}
                             <span className="font-display font-black text-sm flex items-center gap-0.5">
                               {showSets ? (
                                 <>

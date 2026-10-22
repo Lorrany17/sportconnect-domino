@@ -39,6 +39,11 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Adicionar colunas de redes sociais e privacidade à tabela profiles
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS instagram TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS tiktok TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS show_phone BOOLEAN DEFAULT TRUE;
+
 -- 5. Adicionar colunas adicionais na tabela tournaments
 ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS sport_type TEXT DEFAULT 'DOMINO';
@@ -175,5 +180,99 @@ TO authenticated
 USING (true)
 WITH CHECK (true);
 
+-- 13. Habilitar leitura pública para a tabela profiles (Perfil Público do Atleta)
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Permitir leitura pública de perfis'
+    ) THEN
+        CREATE POLICY "Permitir leitura pública de perfis" 
+        ON public.profiles FOR SELECT 
+        USING (true);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Permitir que usuários atualizem seu próprio perfil'
+    ) THEN
+        CREATE POLICY "Permitir que usuários atualizem seu próprio perfil" 
+        ON public.profiles FOR UPDATE 
+        TO authenticated 
+        USING (auth.uid() = id)
+        WITH CHECK (auth.uid() = id);
+    END IF;
+END $$;
+
+-- 14. Suporte a Categoria de Gênero (Masculino, Feminino, Misto) em tournaments
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS gender_category TEXT DEFAULT 'Misto';
+
+-- 15. Tabela de Membros de Equipe (team_members) para vínculo automático de atletas
+CREATE TABLE IF NOT EXISTS public.team_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id UUID NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    name TEXT,
+    email TEXT,
+    is_captain BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'team_members' AND policyname = 'Permitir leitura pública de team_members'
+    ) THEN
+        CREATE POLICY "Permitir leitura pública de team_members" 
+        ON public.team_members FOR SELECT 
+        USING (true);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'team_members' AND policyname = 'Permitir insert/update de team_members para autenticados'
+    ) THEN
+        CREATE POLICY "Permitir insert/update de team_members para autenticados" 
+        ON public.team_members FOR ALL 
+        TO authenticated 
+        USING (true)
+        WITH CHECK (true);
+    END IF;
+END $$;
+
+-- 16. Suporte a Patrocinadores (coluna sponsors JSONB e bucket sponsors)
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS sponsors JSONB DEFAULT '[]'::jsonb;
+
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('sponsors', 'sponsors', true) 
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir leitura pública das logos de patrocinadores'
+    ) THEN
+        CREATE POLICY "Permitir leitura pública das logos de patrocinadores" 
+        ON storage.objects FOR SELECT 
+        USING (bucket_id = 'sponsors');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir upload de logos de patrocinadores'
+    ) THEN
+        CREATE POLICY "Permitir upload de logos de patrocinadores" 
+        ON storage.objects FOR INSERT 
+        WITH CHECK (bucket_id = 'sponsors');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir update de logos de patrocinadores'
+    ) THEN
+        CREATE POLICY "Permitir update de logos de patrocinadores" 
+        ON storage.objects FOR UPDATE 
+        USING (bucket_id = 'sponsors');
+    END IF;
+END $$;
 
 

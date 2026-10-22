@@ -19,8 +19,9 @@ import {
   Trash2,
   ImageIcon,
   FileText,
+  Building2,
 } from "lucide-react";
-import { SportType, Tournament, CustomFieldType, CustomRegistrationField } from "@/types";
+import { SportType, Tournament, CustomFieldType, CustomRegistrationField, Sponsor } from "@/types";
 import { useAuth } from "@/context/AuthProvider";
 import { useTournament } from "@/context/TournamentContext";
 import { supabase } from "@/lib/supabase";
@@ -73,6 +74,7 @@ export default function CreateTournamentForm({
   const [name, setName] = useState(initialData?.name || "");
   const [sportType, setSportType] = useState<SportType>((initialData?.sport_type as SportType) || "DOMINO");
   const [format, setFormat] = useState<string>(initialData?.format || "Duplas");
+  const [genderCategory, setGenderCategory] = useState<string>(initialData?.gender_category || "Misto");
   const [startDate, setStartDate] = useState(initialData?.start_date ? initialData.start_date.split("T")[0] : "");
   const [address, setAddress] = useState(initialData?.location || "");
   const [debouncedAddress, setDebouncedAddress] = useState(initialData?.location || "");
@@ -91,6 +93,29 @@ export default function CreateTournamentForm({
         required: Boolean(f.required),
         options: Array.isArray(f.options) ? f.options : [],
         optionsString: Array.isArray(f.options) ? f.options.join(", ") : (typeof f.options === "string" ? f.options : ""),
+      }));
+    }
+    return [];
+  });
+
+  // Estado para Patrocinadores do Evento
+  interface FormSponsor {
+    id: string;
+    name: string;
+    logo_url: string | null;
+    link: string | null;
+    file?: File | null;
+    previewUrl?: string | null;
+  }
+
+  const [sponsors, setSponsors] = useState<FormSponsor[]>(() => {
+    if (initialData?.sponsors && Array.isArray(initialData.sponsors)) {
+      return initialData.sponsors.map((s) => ({
+        id: s.id || `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        name: s.name || "",
+        logo_url: s.logo_url || null,
+        link: s.link || null,
+        previewUrl: s.logo_url || null,
       }));
     }
     return [];
@@ -138,6 +163,55 @@ export default function CreateTournamentForm({
     );
   };
 
+  // Manipuladores de Patrocinadores
+  const handleAddSponsor = () => {
+    const newSponsor: FormSponsor = {
+      id: `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      name: "",
+      logo_url: null,
+      link: null,
+      file: null,
+      previewUrl: null,
+    };
+    setSponsors((prev) => [...prev, newSponsor]);
+  };
+
+  const handleRemoveSponsor = (id: string) => {
+    setSponsors((prev) => {
+      const target = prev.find((s) => s.id === id);
+      if (target?.previewUrl && target.previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((s) => s.id !== id);
+    });
+  };
+
+  const handleUpdateSponsor = (id: string, updates: Partial<FormSponsor>) => {
+    setSponsors((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        return { ...s, ...updates };
+      })
+    );
+  };
+
+  const handleSponsorLogoSelect = (id: string, file: File) => {
+    if (!file.type.startsWith("image/")) {
+      alert("Por favor, selecione um arquivo de imagem válido (PNG, JPG, SVG, WEBP).");
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    setSponsors((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        if (s.previewUrl && s.previewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(s.previewUrl);
+        }
+        return { ...s, file, previewUrl: preview };
+      })
+    );
+  };
+
   // Atualiza estados caso initialData mude
   useEffect(() => {
     if (initialData) {
@@ -147,6 +221,9 @@ export default function CreateTournamentForm({
       }
       if (initialData.format) {
         setFormat(initialData.format);
+      }
+      if (initialData.gender_category) {
+        setGenderCategory(initialData.gender_category);
       }
       if (initialData.start_date) {
         setStartDate(initialData.start_date.split("T")[0]);
@@ -183,6 +260,19 @@ export default function CreateTournamentForm({
         );
       } else {
         setCustomFields([]);
+      }
+      if (initialData.sponsors && Array.isArray(initialData.sponsors)) {
+        setSponsors(
+          initialData.sponsors.map((s) => ({
+            id: s.id || `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            name: s.name || "",
+            logo_url: s.logo_url || null,
+            link: s.link || null,
+            previewUrl: s.logo_url || null,
+          }))
+        );
+      } else {
+        setSponsors([]);
       }
     }
   }, [initialData]);
@@ -357,10 +447,54 @@ export default function CreateTournamentForm({
         })
         .filter((f) => f.label.length > 0);
 
+      // Processamento e Upload das Logos de Patrocinadores
+      const processedSponsors: Sponsor[] = [];
+      for (const sp of sponsors) {
+        const trimmedSpName = sp.name.trim();
+        if (!trimmedSpName) continue; // Pula patrocinadores sem nome
+
+        let finalLogoUrl = sp.logo_url || null;
+        if (sp.file) {
+          try {
+            const cleanFileName = sp.file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const uniqueFileName = `${Date.now()}_${cleanFileName}`;
+
+            const { error: spUploadError } = await supabase.storage
+              .from("sponsors")
+              .upload(uniqueFileName, sp.file, {
+                cacheControl: "3600",
+                upsert: true,
+              });
+
+            if (!spUploadError) {
+              const { data: pubData } = supabase.storage
+                .from("sponsors")
+                .getPublicUrl(uniqueFileName);
+
+              if (pubData?.publicUrl) {
+                finalLogoUrl = pubData.publicUrl;
+              }
+            } else {
+              console.warn("Aviso no upload da logo do patrocinador:", spUploadError);
+            }
+          } catch (spErr) {
+            console.warn("Exceção ao enviar logo:", spErr);
+          }
+        }
+
+        processedSponsors.push({
+          id: sp.id,
+          name: trimmedSpName,
+          logo_url: finalLogoUrl,
+          link: sp.link ? sp.link.trim() : null,
+        });
+      }
+
       // Montagem da base do payload
       const payload: any = {
         name: trimmedName,
         sport_type: sportType,
+        gender_category: genderCategory,
         format: format || (sportType === "DOMINO" ? "Duplas" : sportType === "FUTSAL" ? "5x5" : null),
         start_date: formattedStartDate,
         location: address.trim() || null,
@@ -369,6 +503,7 @@ export default function CreateTournamentForm({
         rules: rules.trim() || null,
         organizer_pix_key: organizerPixKey.trim() || null,
         custom_registration_fields: sanitizedCustomFields,
+        sponsors: processedSponsors,
       };
 
       if (isEditing) {
@@ -524,6 +659,7 @@ export default function CreateTournamentForm({
             createdAt: data.created_at,
             sport_type: data.sport_type,
             format: data.format,
+            gender_category: data.gender_category || genderCategory,
             owner_id: data.owner_id,
             max_teams: data.max_teams ? Number(data.max_teams) : maxTeams,
             entry_fee: data.entry_fee ? Number(data.entry_fee) : parsedEntryFee,
@@ -533,6 +669,7 @@ export default function CreateTournamentForm({
             cover_url: data.cover_url || finalCoverUrl,
             organizer_pix_key: data.organizer_pix_key || organizerPixKey.trim() || undefined,
             custom_registration_fields: data.custom_registration_fields || sanitizedCustomFields,
+            sponsors: data.sponsors || processedSponsors,
           };
 
           setTournaments((prev: Tournament[]) => [mappedNewTour, ...prev]);
@@ -733,7 +870,7 @@ export default function CreateTournamentForm({
           />
         </div>
 
-        {/* 2. Grid Responsiva: Modalidade e Formato / Data de Início */}
+        {/* 2. Grid Responsiva: Modalidade e Categoria (Gênero) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Modalidade */}
           <div className="space-y-1.5">
@@ -758,8 +895,31 @@ export default function CreateTournamentForm({
             </div>
           </div>
 
-          {/* Formato da Competição (Renderização Condicional para Vôlei ou Ping Pong) */}
-          {isFormatVisible ? (
+          {/* Categoria de Gênero */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
+              Categoria <span className="text-blue-500">*</span>
+            </label>
+            <div className="relative">
+              <select
+                value={genderCategory}
+                onChange={(e) => setGenderCategory(e.target.value)}
+                className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#333] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-zinc-100 outline-none transition-all appearance-none cursor-pointer pr-10"
+              >
+                <option value="Masculino" className="bg-[#1a1a1a] text-white">Masculino</option>
+                <option value="Feminino" className="bg-[#1a1a1a] text-white">Feminino</option>
+                <option value="Misto" className="bg-[#1a1a1a] text-white">Misto</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-zinc-400">
+                <ChevronDown className="h-4 w-4" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2.1 Formato da Competição (se aplicável) e Data de Início */}
+        <div className={`grid grid-cols-1 ${isFormatVisible ? "md:grid-cols-2" : "md:grid-cols-1"} gap-4`}>
+          {isFormatVisible && (
             <div className="space-y-1.5 animate-fadeIn">
               <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
                 Formato da Competição <span className="text-blue-500">*</span>
@@ -788,42 +948,22 @@ export default function CreateTournamentForm({
                 </div>
               </div>
             </div>
-          ) : (
-            /* Quando o formato não é aplicável, alinha a Data de Início no grid de 2 colunas */
-            <div className="space-y-1.5">
-              <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
-                Data de Início
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#333] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-zinc-100 outline-none transition-all [color-scheme:dark]"
-                />
-              </div>
-            </div>
           )}
-        </div>
 
-        {/* Linha adicional para Data de Início se o campo Formato estiver ativo */}
-        {isFormatVisible && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
-            <div className="space-y-1.5">
-              <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
-                Data de Início
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#333] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-zinc-100 outline-none transition-all [color-scheme:dark]"
-                />
-              </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
+              Data de Início
+            </label>
+            <div className="relative">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#333] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-zinc-100 outline-none transition-all [color-scheme:dark]"
+              />
             </div>
           </div>
-        )}
+        </div>
 
         {/* 3. Local do Evento & Mapa Funcional com Iframe */}
         <div className="space-y-2">
@@ -1132,6 +1272,157 @@ export default function CreateTournamentForm({
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+
+        {/* Nova Secção: Patrocinadores do Evento */}
+        <div className="space-y-3 pt-2 border-t border-[#27272a]/60">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-amber-400" />
+                <h3 className="text-xs font-black uppercase tracking-wider text-zinc-200">
+                  Patrocinadores do Evento
+                </h3>
+              </div>
+              <p className="text-[11px] text-zinc-500 mt-0.5">
+                Adicione marcas e apoiadores oficiais para exibir na vitrine do torneio e no chaveamento.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddSponsor}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600/15 hover:bg-amber-600/25 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 hover:text-amber-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer self-start sm:self-auto"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Adicionar Patrocinador</span>
+            </button>
+          </div>
+
+          {sponsors.length === 0 ? (
+            <div className="p-4 rounded-2xl bg-[#0f0f0f] border border-dashed border-[#27272a] text-center space-y-1">
+              <p className="text-xs text-zinc-400 font-medium">
+                Nenhum patrocinador cadastrado.
+              </p>
+              <p className="text-[11px] text-zinc-600">
+                Torneios com patrocinadores ganham mais visibilidade e credibilidade.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sponsors.map((sponsor, index) => (
+                <div
+                  key={sponsor.id}
+                  className="p-4 rounded-2xl bg-[#0f0f0f] border border-[#27272a] hover:border-zinc-700 transition-all space-y-3 shadow-inner"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-black flex items-center justify-center">
+                        {index + 1}
+                      </span>
+                      <span className="text-xs font-bold text-zinc-300 uppercase tracking-wide">
+                        Patrocinador #{index + 1}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSponsor(sponsor.id)}
+                      className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                      title="Remover patrocinador"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                    {/* Nome da Empresa/Marca */}
+                    <div className="sm:col-span-6 space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
+                        Nome da Empresa/Marca <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={sponsor.name}
+                        onChange={(e) => handleUpdateSponsor(sponsor.id, { name: e.target.value })}
+                        placeholder="Ex: Auto Posto Central, Red Bull"
+                        className="w-full px-3.5 py-2.5 bg-[#141416] border border-[#27272a] focus:border-amber-500 rounded-xl text-xs text-zinc-100 placeholder:text-zinc-600 outline-none transition-all"
+                      />
+                    </div>
+
+                    {/* Link / Instagram */}
+                    <div className="sm:col-span-6 space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
+                        Link / Instagram (Opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={sponsor.link || ""}
+                        onChange={(e) => handleUpdateSponsor(sponsor.id, { link: e.target.value })}
+                        placeholder="https://instagram.com/marca ou site"
+                        className="w-full px-3.5 py-2.5 bg-[#141416] border border-[#27272a] focus:border-amber-500 rounded-xl text-xs text-zinc-100 placeholder:text-zinc-600 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Upload da Logo */}
+                  <div className="space-y-1.5 pt-1 border-t border-[#27272a]/40">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
+                      Logo da Marca (Opcional)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      {sponsor.previewUrl ? (
+                        <div className="relative w-14 h-14 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center p-1 overflow-hidden shrink-0">
+                          <img
+                            src={sponsor.previewUrl}
+                            alt={sponsor.name || "Logo"}
+                            className="w-full h-full object-contain"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleUpdateSponsor(sponsor.id, {
+                                logo_url: null,
+                                file: null,
+                                previewUrl: null,
+                              })
+                            }
+                            className="absolute -top-1 -right-1 p-0.5 bg-red-600 text-white rounded-full hover:bg-red-500 transition-colors"
+                            title="Remover imagem"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl bg-[#141416] border border-dashed border-[#27272a] flex items-center justify-center text-zinc-600 shrink-0">
+                          <ImageIcon className="h-5 w-5" />
+                        </div>
+                      )}
+
+                      <div className="flex-1">
+                        <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-semibold cursor-pointer transition-colors border border-zinc-700">
+                          <UploadCloud className="h-3.5 w-3.5 text-amber-400" />
+                          <span>{sponsor.previewUrl ? "Alterar Logo" : "Escolher Logo (PNG, JPG, SVG)"}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleSponsorLogoSelect(sponsor.id, file);
+                            }}
+                          />
+                        </label>
+                        <p className="text-[10px] text-zinc-500 mt-1">
+                          Recomendado: imagem transparente (PNG ou SVG) até 3MB.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

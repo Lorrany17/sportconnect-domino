@@ -86,6 +86,7 @@ export default function BracketViewer({
           rules: tourData.rules,
           format: tourData.format,
           cover_url: tourData.cover_url,
+          sponsors: tourData.sponsors || [],
         });
       }
 
@@ -107,6 +108,7 @@ export default function BracketViewer({
         createdAt: t.created_at || new Date().toISOString(),
         status: t.status,
         tournamentId: t.tournament_id,
+        user_id: t.user_id,
       }));
       setTeams(mappedTeams);
 
@@ -330,6 +332,57 @@ export default function BracketViewer({
           )}
         </main>
       </div>
+
+      {/* Faixa Discreta de Patrocinadores Oficiais no Rodapé */}
+      {tournament?.sponsors && tournament.sponsors.length > 0 && (
+        <section className="w-full border-t border-[#27272a] bg-[#121214]/90 backdrop-blur-md py-3.5 px-4 sm:px-6">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 sm:gap-6">
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 whitespace-nowrap">
+              Patrocinadores Oficiais:
+            </span>
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 sm:gap-6">
+              {tournament.sponsors.map((sponsor) => {
+                const Item = (
+                  <div
+                    key={sponsor.id}
+                    className="flex items-center gap-2 opacity-65 hover:opacity-100 transition-opacity group cursor-pointer"
+                    title={sponsor.name}
+                  >
+                    {sponsor.logo_url ? (
+                      <div className="h-6 max-w-[100px] flex items-center justify-center">
+                        <img
+                          src={sponsor.logo_url}
+                          alt={sponsor.name}
+                          className="max-h-6 max-w-full object-contain filter grayscale group-hover:grayscale-0 transition-all"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-xs font-bold text-zinc-400 group-hover:text-amber-400 transition-colors">
+                        {sponsor.name}
+                      </span>
+                    )}
+                  </div>
+                );
+
+                if (sponsor.link) {
+                  return (
+                    <a
+                      key={sponsor.id}
+                      href={sponsor.link.startsWith("http") ? sponsor.link : `https://${sponsor.link}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {Item}
+                    </a>
+                  );
+                }
+
+                return Item;
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Footer Limpo */}
       <footer className="border-t border-[#27272a] py-6 text-center text-xs text-zinc-500">

@@ -29,7 +29,26 @@ export interface Tournament {
   rules?: string;
   cover_url?: string;
   organizer_pix_key?: string;
+  gender_category?: "Masculino" | "Feminino" | "Misto" | string;
+  sponsors?: Sponsor[];
   custom_registration_fields?: CustomRegistrationField[];
+}
+
+export interface Sponsor {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  link: string | null;
+}
+
+export interface TeamMember {
+  id?: string;
+  team_id: string;
+  user_id?: string | null;
+  name?: string;
+  email?: string;
+  is_captain?: boolean;
+  created_at?: string;
 }
 
 export interface Profile {
@@ -43,6 +62,9 @@ export interface Profile {
   email?: string;
   created_at?: string;
   favorite_sport?: string;
+  instagram?: string;
+  tiktok?: string;
+  show_phone?: boolean;
 }
 
 export interface Team {

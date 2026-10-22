@@ -880,9 +880,24 @@ export default function TeamRegistration({
                                 Manual
                               </span>
                             )}
+                            {team.user_id && (
+                              <Link
+                                href={`/atleta/${team.user_id}`}
+                                className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 hover:text-blue-300 border border-blue-500/25 font-bold uppercase tracking-wider scale-90 origin-left"
+                                title="Ver perfil público do atleta"
+                              >
+                                Ver Perfil
+                              </Link>
+                            )}
                           </div>
                           <h3 className="font-display font-bold text-lg text-[#3b342e] dark:text-white tracking-wide truncate group-hover:text-brand-electric-light transition-colors">
-                            {team.name}
+                            {team.user_id ? (
+                              <Link href={`/atleta/${team.user_id}`} className="hover:underline">
+                                {team.name}
+                              </Link>
+                            ) : (
+                              team.name
+                            )}
                           </h3>
                         </div>
                         {!isReadOnly && isAuthenticated && (
@@ -903,9 +918,18 @@ export default function TeamRegistration({
                             <span className="text-[10px] text-neutral-500 dark:text-brand-text-muted uppercase block font-semibold">
                               Jogador Individual
                             </span>
-                            <span className="font-medium text-neutral-800 dark:text-white truncate block">
-                              {team.players[0]}
-                            </span>
+                            {team.user_id ? (
+                              <Link
+                                href={`/atleta/${team.user_id}`}
+                                className="font-medium text-neutral-800 dark:text-white hover:text-brand-electric-light hover:underline truncate block"
+                              >
+                                {team.players[0]}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-neutral-800 dark:text-white truncate block">
+                                {team.players[0]}
+                              </span>
+                            )}
                           </div>
                         ) : isTeamSport ? (
                           <div className="space-y-1.5">
@@ -914,9 +938,18 @@ export default function TeamRegistration({
                                 <span className="text-[10px] text-neutral-500 dark:text-brand-text-muted uppercase block font-semibold">
                                   Capitão
                                 </span>
-                                <span className="font-medium text-neutral-800 dark:text-white truncate block">
-                                  {team.players[0]}
-                                </span>
+                                {team.user_id ? (
+                                  <Link
+                                    href={`/atleta/${team.user_id}`}
+                                    className="font-medium text-neutral-800 dark:text-white hover:text-brand-electric-light hover:underline truncate block"
+                                  >
+                                    {team.players[0]}
+                                  </Link>
+                                ) : (
+                                  <span className="font-medium text-neutral-800 dark:text-white truncate block">
+                                    {team.players[0]}
+                                  </span>
+                                )}
                               </div>
                               {team.roster && team.roster.length > 0 && (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-electric/10 text-brand-electric-light border border-brand-electric/20">
@@ -936,9 +969,18 @@ export default function TeamRegistration({
                               <span className="text-[10px] text-neutral-500 dark:text-brand-text-muted uppercase block font-semibold">
                                 Capitão
                               </span>
-                              <span className="font-medium text-neutral-800 dark:text-white truncate block">
-                                {team.players[0]}
-                              </span>
+                              {team.user_id ? (
+                                <Link
+                                  href={`/atleta/${team.user_id}`}
+                                  className="font-medium text-neutral-800 dark:text-white hover:text-brand-electric-light hover:underline truncate block"
+                                >
+                                  {team.players[0]}
+                                </Link>
+                              ) : (
+                                <span className="font-medium text-neutral-800 dark:text-white truncate block">
+                                  {team.players[0]}
+                                </span>
+                              )}
                             </div>
                             <div>
                               <span className="text-[10px] text-neutral-500 dark:text-brand-text-muted uppercase block font-semibold">

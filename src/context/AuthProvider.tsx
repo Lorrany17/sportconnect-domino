@@ -18,7 +18,8 @@ export interface AuthContextType {
   signUp: (
     email: string,
     password: string,
-    fullName: string
+    fullName: string,
+    phone?: string
   ) => Promise<{ data: { user: User | null; session: Session | null } | null; error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
   resetPassword: (email: string) => Promise<{ data: any; error: AuthError | null }>;
@@ -220,15 +221,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result;
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
     setLoading(true);
-    // Envia full_name dentro de options.data para o Trigger da tabela profiles do Supabase
+    // Envia full_name e phone dentro de options.data para o Trigger da tabela profiles do Supabase
     const result = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
+          phone: phone || null,
         },
       },
     });
@@ -236,6 +238,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(result.data.user);
       setSession(result.data.session);
       syncAuthCookies(result.data.session);
+
+      // Garante atualização na tabela profiles com o telefone e show_phone padrão true
+      if (phone) {
+        try {
+          await supabase
+            .from("profiles")
+            .update({ phone, show_phone: true })
+            .eq("id", result.data.user.id);
+        } catch (err) {
+          console.warn("Aviso ao atualizar telefone no perfil recém-criado:", err);
+        }
+      }
+      await fetchProfile(result.data.user);
     }
     setLoading(false);
     return result;

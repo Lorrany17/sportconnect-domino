@@ -184,6 +184,108 @@ export const SPORT_EMOJIS: Record<string, string> = {
   "Vôlei": "🏐",
 };
 
+// Formatador com máscara restrita para telefone/WhatsApp no padrão brasileiro: (XX) XXXXX-XXXX
+export const formatPhoneBR = (value: string): string => {
+  if (!value) return "";
+  let digits = value.replace(/\D/g, "");
+  if (digits.length > 11 && digits.startsWith("55")) {
+    digits = digits.slice(2);
+  }
+  digits = digits.slice(0, 11);
+  if (!digits) return "";
+
+  if (digits.length <= 2) {
+    return `(${digits}`;
+  }
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  }
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+};
+
+// Ícone em SVG do Instagram (estilo Lucide)
+export function InstagramIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
+
+// Ícone em SVG do TikTok
+export function TikTokIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+    </svg>
+  );
+}
+
+// Converte @handle ou link em URL válida para redes sociais
+export const getSocialLink = (
+  value?: string | null,
+  platform: "instagram" | "tiktok" = "instagram"
+): string => {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+
+  const handle = trimmed.replace(/^@+/, "").trim();
+  if (!handle) return "";
+
+  if (platform === "instagram") {
+    return `https://instagram.com/${handle}`;
+  }
+
+  return `https://tiktok.com/@${handle}`;
+};
+
+// Formata o arroba amigável para exibição visual (ex: @usuario)
+export const getSocialDisplayHandle = (value?: string | null): string => {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const url = new URL(trimmed);
+      const segments = url.pathname.split("/").filter(Boolean);
+      if (segments.length > 0) {
+        const last = segments[segments.length - 1].replace(/^@+/, "");
+        return `@${last}`;
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  const handle = trimmed.replace(/^@+/, "");
+  return `@${handle}`;
+};
+
 export default function PerfilPage() {
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
@@ -198,9 +300,12 @@ export default function PerfilPage() {
   // Estados do Formulário de Edição
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
+  const [formShowPhone, setFormShowPhone] = useState(true);
   const [formLocation, setFormLocation] = useState("");
   const [formBio, setFormBio] = useState("");
   const [formFavoriteSport, setFormFavoriteSport] = useState("Nenhum");
+  const [formInstagram, setFormInstagram] = useState("");
+  const [formTiktok, setFormTiktok] = useState("");
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState("");
   const [avatarTab, setAvatarTab] = useState<"upload" | "url" | "presets">("upload");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -321,19 +426,45 @@ export default function PerfilPage() {
           setIsOrganizer(Boolean(orgData && orgData.length > 0));
         }
 
-        // 1. Fetch Dinâmico de "Times Atuais"
-        // Query à tabela teams onde user_id = user.id, trazendo junto tournaments(name, sport_type)
-        const { data: teamsData, error: teamsError } = await supabase
+        // 1. Fetch Dinâmico de "Times Atuais" via tabela team_members
+        // Busca os times onde o usuário é membro (capitão ou atleta/parceiro convidado)
+        const { data: memberRows, error: memberError } = await supabase
+          .from("team_members")
+          .select("team_id, teams(*, tournaments(name, sport_type))")
+          .eq("user_id", user.id);
+
+        if (memberError) {
+          console.warn("Aviso ao carregar team_members:", memberError);
+        }
+
+        const teamsMap: Record<string, any> = {};
+
+        // Extrai os dados das equipes retornadas via team_members
+        (memberRows || []).forEach((row: any) => {
+          const t = Array.isArray(row.teams) ? row.teams[0] : row.teams;
+          if (t && t.id) {
+            teamsMap[t.id] = t;
+          }
+        });
+
+        // Fallback / Compatibilidade Histórica: busca também onde user_id = user.id na tabela teams
+        const { data: directTeams } = await supabase
           .from("teams")
           .select("*, tournaments(name, sport_type)")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
 
-        if (teamsError) {
-          console.warn("Aviso ao carregar times do atleta:", teamsError);
-        }
+        (directTeams || []).forEach((t: any) => {
+          if (t && t.id && !teamsMap[t.id]) {
+            teamsMap[t.id] = t;
+          }
+        });
 
-        const rawTeams = teamsData || [];
+        const rawTeams = Object.values(teamsMap).sort((a: any, b: any) => {
+          const dateA = new Date(a.created_at || 0).getTime();
+          const dateB = new Date(b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
 
         // Fallback para buscar torneios caso a junção direta não tenha preenchido
         const missingTournIds = rawTeams
@@ -578,14 +709,13 @@ export default function PerfilPage() {
       displayName ||
       ""
     );
-    setFormPhone(profile?.phone || "");
+    setFormPhone(profile?.phone ? formatPhoneBR(profile.phone) : "");
+    setFormShowPhone(profile?.show_phone !== false);
     setFormLocation(profile?.location || displayLocation || "Picos, PI");
-    setFormBio(
-      profile?.bio ||
-      displayBio ||
-      "Atleta competitivo do SportConnect. Foco em dominó, esportes de mesa e torneios oficiais."
-    );
+    setFormBio(profile?.bio || "");
     setFormFavoriteSport(profile?.favorite_sport || "Nenhum");
+    setFormInstagram(profile?.instagram || "");
+    setFormTiktok(profile?.tiktok || "");
     const currentAvatar =
       profile?.avatar_url ||
       user?.user_metadata?.avatar_url ||
@@ -636,8 +766,21 @@ export default function PerfilPage() {
     if (!user) return;
 
     const trimmedName = formName.trim();
-    if (!trimmedName) {
-      setErrorMessage("O Nome do usuário não pode ficar em branco.");
+    const nameWords = trimmedName ? trimmedName.split(/\s+/).filter(Boolean) : [];
+
+    if (nameWords.length < 2) {
+      setErrorMessage(
+        "Por favor, insira o seu nome e sobrenome para facilitar a sua identificação nos torneios."
+      );
+      return;
+    }
+
+    const trimmedPhone = formPhone.trim();
+    const phoneDigits = trimmedPhone.replace(/\D/g, "");
+    if (!trimmedPhone || phoneDigits.length < 10) {
+      setErrorMessage(
+        "Por favor, insira um número de Telefone / WhatsApp válido com DDD."
+      );
       return;
     }
 
@@ -685,13 +828,16 @@ export default function PerfilPage() {
         .update({
           full_name: trimmedName,
           avatar_url: finalAvatarUrl,
-          phone: formPhone.trim() || null,
+          phone: trimmedPhone || null,
+          show_phone: formShowPhone,
           location: formLocation.trim() || null,
           bio: formBio.trim() || null,
           favorite_sport:
             formFavoriteSport && formFavoriteSport !== "Nenhum"
               ? formFavoriteSport
               : null,
+          instagram: formInstagram.trim() || null,
+          tiktok: formTiktok.trim() || null,
         })
         .eq("id", user.id);
 
@@ -705,6 +851,8 @@ export default function PerfilPage() {
         data: {
           full_name: trimmedName,
           avatar_url: finalAvatarUrl,
+          phone: trimmedPhone,
+          show_phone: formShowPhone,
         },
       });
 
@@ -736,10 +884,8 @@ export default function PerfilPage() {
     DEFAULT_AVATAR;
 
   const displayLocation = profile?.location || "Picos, PI";
-  const displayPhone = profile?.phone || "(89) 99999-9999";
-  const displayBio =
-    profile?.bio ||
-    "Atleta oficial do ecossistema SportConnect. Focado em competições oficiais de Dominó, Ping Pong, Futsal e Vôlei.";
+  const displayPhone = profile?.phone ? formatPhoneBR(profile.phone) : "";
+  const displayBio = profile?.bio || "";
   const displayFavoriteSport =
     profile?.favorite_sport && profile.favorite_sport !== "Nenhum"
       ? profile.favorite_sport
@@ -846,18 +992,60 @@ export default function PerfilPage() {
                     {profile?.phone && (
                       <>
                         <span className="text-zinc-600 hidden sm:inline">•</span>
-                        <span className="flex items-center gap-1 font-medium">
+                        <span className="flex items-center gap-1.5 font-medium">
                           <Phone className="h-3.5 w-3.5 text-emerald-400" />
                           <span>{displayPhone}</span>
+                          {profile?.show_phone === false && (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-800/90 border border-zinc-700/80 text-[10px] font-semibold text-zinc-400 select-none"
+                              title="Este telefone está oculto para outros atletas no perfil público"
+                            >
+                              <Lock className="h-2.5 w-2.5 text-amber-400" />
+                              <span>Privado</span>
+                            </span>
+                          )}
                         </span>
                       </>
                     )}
                   </div>
 
                   {/* Bio curta */}
-                  <p className="text-xs text-zinc-300 max-w-xl leading-relaxed pt-1">
-                    {displayBio}
-                  </p>
+                  {displayBio && (
+                    <p className="text-xs text-zinc-300 max-w-xl leading-relaxed pt-1">
+                      {displayBio}
+                    </p>
+                  )}
+
+                  {/* Redes Sociais do Atleta (Instagram & TikTok) */}
+                  {(profile?.instagram || profile?.tiktok) && (
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-2">
+                      {profile?.instagram && (
+                        <a
+                          href={getSocialLink(profile.instagram, "instagram")}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-amber-500/10 hover:from-pink-500/20 hover:via-purple-500/20 hover:to-amber-500/20 border border-pink-500/30 hover:border-pink-500/60 text-xs font-bold text-pink-300 hover:text-white transition-all shadow-sm group cursor-pointer"
+                          title={`Instagram: ${profile.instagram}`}
+                        >
+                          <InstagramIcon className="h-3.5 w-3.5 text-pink-400 group-hover:scale-110 transition-transform" />
+                          <span>{getSocialDisplayHandle(profile.instagram)}</span>
+                        </a>
+                      )}
+
+                      {profile?.tiktok && (
+                        <a
+                          href={getSocialLink(profile.tiktok, "tiktok")}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-cyan-400/50 text-xs font-bold text-zinc-200 hover:text-white transition-all shadow-sm group cursor-pointer"
+                          title={`TikTok: ${profile.tiktok}`}
+                        >
+                          <TikTokIcon className="h-3.5 w-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
+                          <span>{getSocialDisplayHandle(profile.tiktok)}</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1431,12 +1619,15 @@ export default function PerfilPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
-                        Telefone / WhatsApp
+                        Telefone / WhatsApp <span className="text-amber-400">*</span>
                       </label>
                       <input
-                        type="text"
+                        type="tel"
+                        required={true}
+                        inputMode="numeric"
+                        maxLength={15}
                         value={formPhone}
-                        onChange={(e) => setFormPhone(e.target.value)}
+                        onChange={(e) => setFormPhone(formatPhoneBR(e.target.value))}
                         placeholder="(89) 99999-9999"
                         className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#27272a] focus:border-amber-400 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all shadow-inner"
                       />
@@ -1453,6 +1644,35 @@ export default function PerfilPage() {
                         placeholder="Ex: Picos, PI"
                         className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#27272a] focus:border-amber-400 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all shadow-inner"
                       />
+                    </div>
+
+                    {/* Toggle Switch estilo iOS para privacidade do Telefone (LGPD) */}
+                    <div className="sm:col-span-2 flex items-center justify-between p-3.5 rounded-xl bg-[#0f0f0f] border border-[#27272a] hover:border-zinc-700 transition-colors">
+                      <div className="flex flex-col pr-3">
+                        <span className="text-xs font-bold text-zinc-200">
+                          Mostrar meu telefone publicamente no perfil
+                        </span>
+                        <span className="text-[11px] text-zinc-500">
+                          {formShowPhone
+                            ? "Visível publicamente para outros atletas e organizadores"
+                            : "Oculto no perfil público (apenas você pode visualizar)"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={formShowPhone}
+                        onClick={() => setFormShowPhone((prev) => !prev)}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          formShowPhone ? "bg-amber-400" : "bg-zinc-700"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full shadow-md ring-0 transition duration-200 ease-in-out ${
+                            formShowPhone ? "translate-x-5 bg-black" : "translate-x-0 bg-zinc-300"
+                          }`}
+                        />
+                      </button>
                     </div>
                   </div>
 
@@ -1488,6 +1708,44 @@ export default function PerfilPage() {
                       placeholder="Conte um pouco sobre sua trajetória esportiva, títulos ou modalidade favorita..."
                       className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#27272a] focus:border-amber-400 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all resize-y shadow-inner"
                     />
+                  </div>
+
+                  {/* Redes Sociais: Instagram & TikTok */}
+                  <div className="pt-2 border-t border-[#27272a]/70 space-y-3">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-zinc-400 block flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                      <span>Redes Sociais (Opcional)</span>
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                          <InstagramIcon className="h-3.5 w-3.5 text-pink-400" />
+                          <span>Instagram</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formInstagram}
+                          onChange={(e) => setFormInstagram(e.target.value)}
+                          placeholder="@seuarroba ou https://instagram.com/seuarroba"
+                          className="w-full px-4 py-2.5 bg-[#0f0f0f] border border-[#27272a] focus:border-amber-400 rounded-xl text-xs text-zinc-100 placeholder:text-zinc-600 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                          <TikTokIcon className="h-3.5 w-3.5 text-cyan-400" />
+                          <span>TikTok</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formTiktok}
+                          onChange={(e) => setFormTiktok(e.target.value)}
+                          placeholder="@seuarroba ou https://tiktok.com/@seuarroba"
+                          className="w-full px-4 py-2.5 bg-[#0f0f0f] border border-[#27272a] focus:border-amber-400 rounded-xl text-xs text-zinc-100 placeholder:text-zinc-600 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 

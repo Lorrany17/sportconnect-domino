@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Users,
   CheckCircle2,
@@ -115,6 +116,7 @@ export default function RegistrationManagement({
           contact: dbT.contact,
           roster: dbT.roster,
           custom_registration_answers: dbT.custom_registration_answers,
+          user_id: dbT.user_id,
         }));
         setLocalTeams(mapped);
       }
@@ -727,13 +729,29 @@ export default function RegistrationManagement({
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      {/* Avatar com Ícone Esportivo */}
-                      <div className="w-11 h-11 rounded-xl bg-zinc-800/90 border border-zinc-700 flex items-center justify-center text-lg shadow-inner group-hover:scale-105 transition-transform shrink-0">
-                        {sportIcon}
-                      </div>
+                      {/* Avatar com Ícone Esportivo e Link para o Perfil */}
+                      {team.user_id ? (
+                        <Link
+                          href={`/atleta/${team.user_id}`}
+                          title={`Ver perfil do atleta`}
+                          className="w-11 h-11 rounded-xl bg-zinc-800/90 border border-zinc-700 hover:border-amber-400/60 flex items-center justify-center text-lg shadow-inner group-hover:scale-105 transition-all shrink-0 cursor-pointer"
+                        >
+                          {sportIcon}
+                        </Link>
+                      ) : (
+                        <div className="w-11 h-11 rounded-xl bg-zinc-800/90 border border-zinc-700 flex items-center justify-center text-lg shadow-inner group-hover:scale-105 transition-transform shrink-0">
+                          {sportIcon}
+                        </div>
+                      )}
                       <div>
                         <h3 className="font-display font-black text-base text-white group-hover:text-blue-400 transition-colors line-clamp-1">
-                          {team.name}
+                          {team.user_id ? (
+                            <Link href={`/atleta/${team.user_id}`} className="hover:underline">
+                              {team.name}
+                            </Link>
+                          ) : (
+                            team.name
+                          )}
                         </h3>
                         <span className="inline-block px-2 py-0.5 rounded bg-zinc-800/80 text-[10px] font-bold text-zinc-400 mt-0.5">
                           {category}
@@ -771,9 +789,20 @@ export default function RegistrationManagement({
                   <div className="p-3 rounded-xl bg-[#121214] border border-zinc-800/80 space-y-1.5 text-xs">
                     <div className="flex items-center justify-between text-zinc-400">
                       <span className="font-medium text-zinc-500">Responsável:</span>
-                      <span className="font-bold text-zinc-200 truncate max-w-[140px]">
-                        {manager}
-                      </span>
+                      {team.user_id ? (
+                        <Link
+                          href={`/atleta/${team.user_id}`}
+                          title="Ver perfil do atleta"
+                          className="font-bold text-zinc-200 hover:text-amber-400 hover:underline truncate max-w-[140px] flex items-center gap-1 transition-colors"
+                        >
+                          <span className="truncate">{manager}</span>
+                          <ExternalLink className="h-3 w-3 text-amber-400/80 shrink-0" />
+                        </Link>
+                      ) : (
+                        <span className="font-bold text-zinc-200 truncate max-w-[140px]">
+                          {manager}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between text-zinc-400">

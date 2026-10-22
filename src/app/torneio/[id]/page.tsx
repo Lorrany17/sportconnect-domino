@@ -21,11 +21,12 @@ import {
   Clock,
   Ban,
   Network,
+  Building2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
 import { useTournament } from "@/context/TournamentContext";
-import { Tournament, SportType } from "@/types";
+import { Tournament, SportType, Team } from "@/types";
 import { DEFAULT_COVERS, SPORT_SELECT_OPTIONS } from "@/components/CreateTournamentForm";
 import PublicRegistrationForm from "@/components/PublicRegistrationForm";
 import PublicHeader from "@/components/PublicHeader";
@@ -47,6 +48,7 @@ export default function DetalhesTorneioPage() {
   const [cancellationStatus, setCancellationStatus] = useState<string | null>(null);
   const [registeredTeamId, setRegisteredTeamId] = useState<string | null>(null);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [tournamentTeams, setTournamentTeams] = useState<Team[]>([]);
 
   // Verificação de inscrição do usuário autenticado no torneio
   useEffect(() => {
@@ -128,10 +130,36 @@ export default function DetalhesTorneioPage() {
             end_date: data.end_date,
             rules: data.rules,
             cover_url: data.cover_url,
+            gender_category: data.gender_category,
+            sponsors: data.sponsors || [],
             organizer_pix_key: data.organizer_pix_key,
             custom_registration_fields: data.custom_registration_fields,
           };
           setTournament(mapped);
+
+          // Fetch das equipes inscritas no torneio
+          const { data: teamsData } = await supabase
+            .from("teams")
+            .select("*")
+            .eq("tournament_id", id)
+            .order("created_at", { ascending: true });
+
+          if (teamsData) {
+            const mappedTeams: Team[] = teamsData.map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              players: [t.player1 || "Jogador 1", t.player2].filter(Boolean),
+              roster: t.roster,
+              createdAt: t.created_at || new Date().toISOString(),
+              status: t.status,
+              tournamentId: t.tournament_id,
+              payment_status: t.payment_status,
+              manager_name: t.manager_name || t.player1,
+              category: t.category,
+              user_id: t.user_id,
+            }));
+            setTournamentTeams(mappedTeams);
+          }
         } else {
           const foundInContext = contextTournaments.find((t) => t.id === id);
           if (foundInContext) {
@@ -349,6 +377,11 @@ export default function DetalhesTorneioPage() {
                   <span>{sportMeta?.icon || "🏆"}</span>
                   <span>{sportMeta?.label || sportType}</span>
                 </span>
+                {tournament.gender_category && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-500/15 backdrop-blur-md border border-purple-500/30 text-xs font-bold text-purple-300">
+                    <span>{tournament.gender_category}</span>
+                  </span>
+                )}
                 {tournament.format && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-zinc-900/80 backdrop-blur-md border border-white/10 text-xs font-bold text-zinc-300">
                     <Layers className="h-3.5 w-3.5 text-blue-400" />
@@ -483,6 +516,83 @@ export default function DetalhesTorneioPage() {
                   </p>
                 )}
               </div>
+
+              {/* Equipes e Atletas Inscritos */}
+              <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-black uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <Users className="h-4 w-4 text-emerald-400" />
+                    <span>Equipes e Atletas Inscritos ({tournamentTeams.length})</span>
+                  </h2>
+                  <span className="text-[11px] text-zinc-500">
+                    {tournament.max_teams ? `${tournamentTeams.length}/${tournament.max_teams} vagas` : "Inscrições abertas"}
+                  </span>
+                </div>
+
+                {tournamentTeams.length === 0 ? (
+                  <div className="p-6 rounded-xl bg-[#121214] border border-dashed border-zinc-800 text-center space-y-1">
+                    <Users className="h-8 w-8 text-zinc-600 mx-auto mb-1" />
+                    <p className="text-xs font-bold text-zinc-400">Nenhuma equipe confirmada ainda</p>
+                    <p className="text-[11px] text-zinc-600">Seja o primeiro a inscrever sua equipe neste campeonato!</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {tournamentTeams.map((team, idx) => (
+                      <div
+                        key={team.id}
+                        className="p-3.5 rounded-xl bg-[#121214] border border-zinc-800/80 hover:border-zinc-700 transition-all flex items-start gap-3"
+                      >
+                        {team.user_id ? (
+                          <Link
+                            href={`/atleta/${team.user_id}`}
+                            title="Ver perfil do atleta"
+                            className="w-9 h-9 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 flex items-center justify-center text-sm font-black text-amber-400 shrink-0 shadow-inner group transition-transform hover:scale-105"
+                          >
+                            <span>#{idx + 1}</span>
+                          </Link>
+                        ) : (
+                          <div className="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm font-black text-zinc-400 shrink-0 shadow-inner">
+                            <span>#{idx + 1}</span>
+                          </div>
+                        )}
+                        <div className="space-y-0.5 min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <h4 className="text-xs font-bold text-white truncate">
+                              {team.user_id ? (
+                                <Link
+                                  href={`/atleta/${team.user_id}`}
+                                  className="hover:text-amber-400 hover:underline transition-colors"
+                                  title="Ver perfil do atleta"
+                                >
+                                  {team.name}
+                                </Link>
+                              ) : (
+                                team.name
+                              )}
+                            </h4>
+                          </div>
+                          <div className="text-[11px] text-zinc-400 truncate flex items-center gap-1.5">
+                            <span>Capitão:</span>
+                            {team.user_id ? (
+                              <Link
+                                href={`/atleta/${team.user_id}`}
+                                className="font-semibold text-zinc-300 hover:text-amber-400 hover:underline"
+                              >
+                                {team.players[0]}
+                              </Link>
+                            ) : (
+                              <span className="font-semibold text-zinc-300">{team.players[0]}</span>
+                            )}
+                            {team.players[1] && (
+                              <span className="text-zinc-500">• {team.players[1]}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Coluna Direita: Box de Inscrição e Ações (1 Col) */}
@@ -612,6 +722,80 @@ export default function DetalhesTorneioPage() {
               </div>
             </div>
           </div>
+
+          {/* ========================================================= */}
+          {/* SECÇÃO DE APOIO E PATROCÍNIO */}
+          {/* ========================================================= */}
+          {tournament.sponsors && tournament.sponsors.length > 0 && (
+            <section className="mt-12 pt-8 border-t border-[#27272a] animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-black uppercase tracking-wider mb-1.5">
+                    <Building2 className="h-3 w-3" />
+                    <span>Marcas Parceiras</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white font-display tracking-tight">
+                    Apoio e Patrocínio
+                  </h2>
+                </div>
+                <p className="text-xs text-zinc-500">
+                  Apoiadores oficiais que tornam esta competição possível.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {tournament.sponsors.map((sponsor) => {
+                  const CardContent = (
+                    <div className="h-full p-4 rounded-2xl bg-[#141416] border border-[#27272a] hover:border-amber-500/50 hover:bg-zinc-900/80 transition-all flex flex-col items-center justify-center text-center gap-2 group shadow-sm">
+                      {sponsor.logo_url ? (
+                        <div className="w-full h-16 sm:h-20 flex items-center justify-center p-2 rounded-xl bg-zinc-900/60 border border-zinc-800/80 group-hover:scale-105 transition-transform">
+                          <img
+                            src={sponsor.logo_url}
+                            alt={sponsor.name}
+                            className="max-h-full max-w-full object-contain filter group-hover:brightness-110 transition-all"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-base group-hover:scale-105 transition-transform">
+                          {sponsor.name.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-xs font-bold text-zinc-200 group-hover:text-amber-300 transition-colors line-clamp-1">
+                        {sponsor.name}
+                      </span>
+                      {sponsor.link && (
+                        <span className="text-[10px] text-zinc-500 group-hover:text-zinc-400 flex items-center gap-1">
+                          <span>Acessar</span>
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </span>
+                      )}
+                    </div>
+                  );
+
+                  if (sponsor.link) {
+                    return (
+                      <a
+                        key={sponsor.id}
+                        href={sponsor.link.startsWith("http") ? sponsor.link : `https://${sponsor.link}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block cursor-pointer transition-transform active:scale-95"
+                        title={`Visitar ${sponsor.name}`}
+                      >
+                        {CardContent}
+                      </a>
+                    );
+                  }
+
+                  return (
+                    <div key={sponsor.id}>
+                      {CardContent}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
         </main>
       </div>
 

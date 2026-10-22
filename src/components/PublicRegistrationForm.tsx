@@ -15,6 +15,7 @@ import {
   Trash2,
   ChevronDown,
   FileText,
+  Mail,
 } from "lucide-react";
 import { Tournament, SportType, Team } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -66,8 +67,9 @@ export default function PublicRegistrationForm({
     user?.user_metadata?.full_name || user?.user_metadata?.name || ""
   );
   const [partnerName, setPartnerName] = useState("");
+  const [partnerEmail, setPartnerEmail] = useState("");
   const [contact, setContact] = useState("");
-  const [athletes, setAthletes] = useState<string[]>([]);
+  const [athletes, setAthletes] = useState<{ name: string; email: string }[]>([]);
   const [customAnswers, setCustomAnswers] = useState<Record<string, any>>({});
 
   const customFields = tournament.custom_registration_fields || [];
@@ -116,13 +118,13 @@ export default function PublicRegistrationForm({
 
   // Manipuladores de atletas adicionais (Futsal / Vôlei)
   const handleAddAthlete = () => {
-    setAthletes((prev) => [...prev, ""]);
+    setAthletes((prev) => [...prev, { name: "", email: "" }]);
   };
 
-  const handleUpdateAthlete = (index: number, val: string) => {
+  const handleUpdateAthlete = (index: number, field: "name" | "email", val: string) => {
     setAthletes((prev) => {
       const next = [...prev];
-      next[index] = val;
+      next[index] = { ...next[index], [field]: val };
       return next;
     });
   };
@@ -216,7 +218,7 @@ export default function PublicRegistrationForm({
         finalName = teamName.trim();
         p1 = captainName.trim();
         p2 = "";
-        const validAthletes = athletes.map((a) => a.trim()).filter(Boolean);
+        const validAthletes = athletes.map((a) => a.name.trim()).filter(Boolean);
         compiledRoster = [p1, ...validAthletes];
       }
 
@@ -256,6 +258,84 @@ export default function PublicRegistrationForm({
       if (insertError) {
         console.error("Erro ao cadastrar equipe:", JSON.stringify(insertError, null, 2));
         throw insertError;
+      }
+
+      // 4. Inserção de membros vinculados na tabela team_members
+      const teamMembersToInsert: {
+        team_id: string;
+        user_id: string | null;
+        name: string;
+        email: string;
+        is_captain: boolean;
+      }[] = [];
+
+      // A. Adiciona o usuário logado (capitão) com is_captain: true
+      teamMembersToInsert.push({
+        team_id: insertedTeam.id,
+        user_id: user.id,
+        name: p1,
+        email: user.email || "",
+        is_captain: true,
+      });
+
+      // B. Coleta e processa os outros membros informados
+      const otherMembers: { name: string; email: string }[] = [];
+
+      if (isDuplasSport && partnerName.trim()) {
+        otherMembers.push({
+          name: partnerName.trim(),
+          email: partnerEmail.trim().toLowerCase(),
+        });
+      } else if (isTeamSport) {
+        athletes.forEach((ath) => {
+          if (ath.name.trim()) {
+            otherMembers.push({
+              name: ath.name.trim(),
+              email: ath.email.trim().toLowerCase(),
+            });
+          }
+        });
+      }
+
+      // C. Loop nos e-mails dos membros para verificar na tabela profiles
+      for (const member of otherMembers) {
+        let matchedUserId: string | null = null;
+        if (member.email) {
+          try {
+            const { data: profileFound } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("email", member.email)
+              .maybeSingle();
+
+            if (profileFound?.id) {
+              matchedUserId = profileFound.id;
+            }
+          } catch (pErr) {
+            console.warn("Aviso ao buscar perfil por email:", pErr);
+          }
+        }
+
+        teamMembersToInsert.push({
+          team_id: insertedTeam.id,
+          user_id: matchedUserId,
+          name: member.name,
+          email: member.email,
+          is_captain: false,
+        });
+      }
+
+      // D. Executa o INSERT em lote na tabela team_members
+      try {
+        const { error: tmError } = await supabase
+          .from("team_members")
+          .insert(teamMembersToInsert);
+
+        if (tmError) {
+          console.warn("Aviso ao vincular membros em team_members:", tmError);
+        }
+      } catch (tmErr) {
+        console.warn("Exceção ao inserir em team_members:", tmErr);
       }
 
       // 4. Mapear equipe inserida
@@ -460,6 +540,28 @@ export default function PublicRegistrationForm({
                       </div>
                     </div>
 
+                    {/* E-mail do Parceiro para vínculo automático de perfil */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
+                          E-mail do Parceiro
+                        </label>
+                        <span className="text-[10px] text-zinc-500">
+                          Vincula estatísticas automaticamente
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                        <input
+                          type="email"
+                          value={partnerEmail}
+                          onChange={(e) => setPartnerEmail(e.target.value)}
+                          placeholder="parceiro@exemplo.com (caso possua conta)"
+                          className="w-full pl-10 pr-4 py-3 bg-[#0f0f0f] border border-[#27272a] focus:border-orange-500 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
                       <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
                         Contato do Capitão (WhatsApp) <span className="text-orange-500">*</span>
@@ -529,49 +631,67 @@ export default function PublicRegistrationForm({
                       </div>
                     </div>
 
-                    {/* Secção de Elenco (Array Dinâmico de Atletas) */}
+                    {/* Secção de Elenco (Array Dinâmico de Membros com Nome e E-mail) */}
                     <div className="pt-2 space-y-2">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
-                          Elenco de Atletas ({athletes.length + 1} no total)
-                        </label>
+                        <div>
+                          <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
+                            Elenco da Equipe ({athletes.length + 1} no total)
+                          </label>
+                          <p className="text-[10px] text-zinc-500">
+                            Informe os e-mails para vincular automaticamente às contas dos atletas
+                          </p>
+                        </div>
                         <button
                           type="button"
                           onClick={handleAddAthlete}
                           className="text-xs text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1 cursor-pointer"
                         >
                           <Plus className="h-3.5 w-3.5" />
-                          <span>Adicionar Atleta</span>
+                          <span>Adicionar Membro</span>
                         </button>
                       </div>
 
-                      <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                        <div className="flex items-center gap-2">
+                      <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
                           <input
                             type="text"
                             disabled
                             value={`Capitão: ${captainName || "Responsável"}`}
-                            className="flex-1 px-3.5 py-2 bg-zinc-900/60 border border-zinc-800 text-xs text-zinc-400 rounded-xl cursor-not-allowed"
+                            className="flex-1 px-3 py-1.5 bg-zinc-900 border border-zinc-800 text-xs text-zinc-400 rounded-lg cursor-not-allowed"
                           />
-                          <span className="text-[10px] text-zinc-500 font-bold px-2 py-1 bg-zinc-800 rounded-lg">
+                          <input
+                            type="text"
+                            disabled
+                            value={user?.email || "Email autenticado"}
+                            className="flex-1 px-3 py-1.5 bg-zinc-900 border border-zinc-800 text-xs text-zinc-400 rounded-lg cursor-not-allowed"
+                          />
+                          <span className="text-[10px] text-orange-400 font-bold px-2 py-1 bg-orange-500/10 border border-orange-500/20 rounded-lg self-start sm:self-center">
                             Capitão
                           </span>
                         </div>
 
                         {athletes.map((ath, idx) => (
-                          <div key={idx} className="flex items-center gap-2 animate-fadeIn">
+                          <div key={idx} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-xl bg-[#0f0f0f] border border-[#27272a] animate-fadeIn">
                             <input
                               type="text"
-                              value={ath}
-                              onChange={(e) => handleUpdateAthlete(idx, e.target.value)}
-                              placeholder={`Nome do Atleta #${idx + 2}`}
-                              className="flex-1 px-3.5 py-2 bg-[#0f0f0f] border border-[#27272a] focus:border-orange-500 text-xs text-zinc-100 placeholder:text-zinc-600 rounded-xl outline-none"
+                              value={ath.name}
+                              onChange={(e) => handleUpdateAthlete(idx, "name", e.target.value)}
+                              placeholder={`Nome do Membro #${idx + 2}`}
+                              className="flex-1 px-3 py-1.5 bg-[#141416] border border-[#27272a] focus:border-orange-500 text-xs text-zinc-100 placeholder:text-zinc-600 rounded-lg outline-none"
+                            />
+                            <input
+                              type="email"
+                              value={ath.email}
+                              onChange={(e) => handleUpdateAthlete(idx, "email", e.target.value)}
+                              placeholder="E-mail (para vincular perfil)"
+                              className="flex-1 px-3 py-1.5 bg-[#141416] border border-[#27272a] focus:border-orange-500 text-xs text-zinc-100 placeholder:text-zinc-600 rounded-lg outline-none"
                             />
                             <button
                               type="button"
                               onClick={() => handleRemoveAthlete(idx)}
-                              className="p-2 text-zinc-500 hover:text-red-400 transition-colors cursor-pointer"
-                              title="Remover atleta"
+                              className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors cursor-pointer self-end sm:self-center"
+                              title="Remover membro"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
