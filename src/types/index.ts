@@ -16,10 +16,11 @@ export interface CustomRegistrationField {
 export interface Tournament {
   id: string;
   name: string;
-  status: "OPEN" | "ATIVO" | "IN_PROGRESS" | "EM_ANDAMENTO" | "COMPLETED" | "FINALIZADO" | "CANCELADO" | string;
+  status: "OPEN" | "ATIVO" | "IN_PROGRESS" | "EM_ANDAMENTO" | "COMPLETED" | "FINALIZADO" | "CANCELADO" | "CANCELLED" | string;
   createdAt: string;
   sport_type?: SportType; // Adicionado para identificar a modalidade
   format?: string;
+  tournament_format?: "KNOCKOUT" | "GROUPS_KNOCKOUT" | "ROUND_ROBIN" | string;
   owner_id?: string;
   max_teams?: number;
   entry_fee?: number;
@@ -28,11 +29,75 @@ export interface Tournament {
   start_time?: string;
   end_date?: string;
   rules?: string;
+  rulebook_url?: string | null;
   cover_url?: string;
+  pix_key_type?: "CPF" | "CNPJ" | "CELULAR" | "EMAIL" | "ALEATORIA" | string;
   organizer_pix_key?: string;
   gender_category?: "MASCULINO" | "FEMININO" | "MISTO" | "Masculino" | "Feminino" | "Misto" | string;
   sponsors?: Sponsor[];
   custom_registration_fields?: CustomRegistrationField[];
+  match_rules?: MatchRules | Record<string, any>;
+  prize_first?: string | null;
+  prize_second?: string | null;
+  prize_third?: string | null;
+  min_players?: number | null;
+  max_players?: number | null;
+  min_age?: number | null;
+  max_age?: number | null;
+}
+
+// Tipos para Regras Dinâmicas de Partida por Modalidade (JSONB)
+export interface TimeMatchRules {
+  halves_count: number;
+  half_duration_minutes: number;
+  has_extra_time: boolean;
+  extra_time_duration?: number;
+  has_penalties: boolean;
+}
+
+export interface SetMatchRules {
+  best_of_sets: number;
+  points_per_set: number;
+  requires_two_point_advantage: boolean;
+  tie_break_points: number;
+}
+
+export interface ScoreMatchRules {
+  target_score: number;
+  max_rounds: number;
+}
+
+export type TimeRules = TimeMatchRules;
+export type SetRules = SetMatchRules;
+export type ScoreRules = ScoreMatchRules;
+export type MatchRules = TimeMatchRules | SetMatchRules | ScoreMatchRules | Record<string, any>;
+
+export interface TournamentFormData {
+  name: string;
+  sport_type: SportType;
+  gender_category?: string;
+  location?: string;
+  start_date?: string;
+  start_time?: string;
+  end_date?: string;
+  max_teams?: number;
+  entry_fee?: number;
+  tournament_format?: string;
+  match_rules?: MatchRules | Record<string, any>;
+  sponsors?: Sponsor[];
+  custom_registration_fields?: CustomRegistrationField[];
+  rules?: string;
+  rulebook_url?: string | null;
+  cover_url?: string;
+  pix_key_type?: string;
+  organizer_pix_key?: string;
+  prize_first?: string | null;
+  prize_second?: string | null;
+  prize_third?: string | null;
+  min_players?: number | null;
+  max_players?: number | null;
+  min_age?: number | null;
+  max_age?: number | null;
 }
 
 export interface Sponsor {

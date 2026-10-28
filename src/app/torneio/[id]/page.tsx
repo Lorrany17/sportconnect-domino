@@ -27,6 +27,9 @@ import {
   X,
   Lock,
   Swords,
+  FileText,
+  Award,
+  Shield,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
@@ -36,6 +39,7 @@ import { DEFAULT_COVERS, SPORT_SELECT_OPTIONS } from "@/components/CreateTournam
 import PublicRegistrationForm from "@/components/PublicRegistrationForm";
 import PublicHeader from "@/components/PublicHeader";
 import PixCheckoutForm from "@/components/PixCheckoutForm";
+import { cancelRegistration } from "@/app/actions/registration";
 
 export default function DetalhesTorneioPage() {
   const params = useParams();
@@ -132,6 +136,8 @@ export default function DetalhesTorneioPage() {
             createdAt: data.created_at,
             sport_type: (data.sport_type as SportType) || "DOMINO",
             format: data.format,
+            tournament_format: data.tournament_format,
+            rulebook_url: data.rulebook_url,
             owner_id: data.owner_id,
             max_teams: data.max_teams ? Number(data.max_teams) : 16,
             entry_fee: data.entry_fee ? Number(data.entry_fee) : 0,
@@ -144,7 +150,16 @@ export default function DetalhesTorneioPage() {
             gender_category: data.gender_category,
             sponsors: data.sponsors || [],
             organizer_pix_key: data.organizer_pix_key,
+            pix_key_type: data.pix_key_type,
             custom_registration_fields: data.custom_registration_fields,
+            match_rules: data.match_rules,
+            prize_first: data.prize_first,
+            prize_second: data.prize_second,
+            prize_third: data.prize_third,
+            min_players: data.min_players,
+            max_players: data.max_players,
+            min_age: data.min_age,
+            max_age: data.max_age,
           };
           setTournament(mapped);
 
@@ -260,9 +275,16 @@ export default function DetalhesTorneioPage() {
     setShowRegistrationModal(true);
   };
 
+  const isTournamentNotOpen = Boolean(tournament?.status && tournament.status !== "OPEN");
+
   // Ação de Cancelamento pelo Atleta
   const handleCancelRegistration = async () => {
     if (!registeredTeamId) return;
+
+    if (tournament && tournament.status !== "OPEN") {
+      alert("Não é possível cancelar a inscrição: o chaveamento do torneio já foi gerado.");
+      return;
+    }
 
     if (registrationStatus === "APPROVED" || registrationStatus === "PAID") {
       setShowPaidCancelModal(true);
@@ -279,22 +301,19 @@ export default function DetalhesTorneioPage() {
   const executeCancelRegistration = async (status: "REQUESTED_BY_ATHLETE" | "REFUND_REQUESTED") => {
     if (!registeredTeamId) return;
     try {
-      const { error } = await supabase
-        .from("teams")
-        .update({ cancellation_status: status })
-        .eq("id", registeredTeamId);
+      const res = await cancelRegistration(registeredTeamId, status);
 
-      if (error) {
-        console.error("Erro ao solicitar cancelamento:", error);
-        alert(`Erro ao solicitar cancelamento: ${error.message}`);
+      if (!res.success) {
+        console.error("Erro ao solicitar cancelamento via Server Action:", res.error);
+        alert(res.error || "Erro ao solicitar cancelamento.");
         return;
       }
 
       setCancellationStatus(status);
       setShowPaidCancelModal(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Exceção ao solicitar cancelamento:", err);
-      alert("Erro ao solicitar cancelamento.");
+      alert(err?.message || "Erro ao solicitar cancelamento.");
     }
   };
 
@@ -347,11 +366,74 @@ export default function DetalhesTorneioPage() {
   const vagasRestantes = Math.max(maxSpots - tournamentTeams.length, 0);
   const isTournamentOpen = tournament.status === "OPEN";
 
+  // Vitrine de Premiação (1º, 2º e 3º Lugar)
+  const hasPrizes = Boolean(
+    tournament.prize_first?.trim() ||
+    tournament.prize_second?.trim() ||
+    tournament.prize_third?.trim()
+  );
+  const filledPrizesCount = [
+    tournament.prize_first?.trim(),
+    tournament.prize_second?.trim(),
+    tournament.prize_third?.trim(),
+  ].filter(Boolean).length;
+  const prizeGridColsClass =
+    filledPrizesCount === 1
+      ? "grid-cols-1"
+      : filledPrizesCount === 2
+      ? "grid-cols-1 sm:grid-cols-2"
+      : "grid-cols-1 sm:grid-cols-3";
+
+  // Restrições de Inscrição (Faixa Etária e Tamanho do Elenco)
+  const getAgeRestrictionText = () => {
+    const min = tournament.min_age;
+    const max = tournament.max_age;
+    if (min !== null && min !== undefined && max !== null && max !== undefined) {
+      return `Faixa Etária: ${min} a ${max} anos`;
+    }
+    if (min !== null && min !== undefined) {
+      return `A partir de ${min} anos`;
+    }
+    if (max !== null && max !== undefined) {
+      return `Até ${max} anos`;
+    }
+    return null;
+  };
+  const ageRestrictionText = getAgeRestrictionText();
+
+  const getSquadRestrictionText = () => {
+    const min = tournament.min_players;
+    const max = tournament.max_players;
+    if (min !== null && min !== undefined && max !== null && max !== undefined) {
+      if (min === max) {
+        return `Elenco: Exatamente ${min} jogadores por equipe`;
+      }
+      return `Elenco: de ${min} a ${max} jogadores por equipa`;
+    }
+    if (min !== null && min !== undefined) {
+      return `Elenco: Mínimo de ${min} jogadores por equipa`;
+    }
+    if (max !== null && max !== undefined) {
+      return `Elenco: Até ${max} jogadores por equipa`;
+    }
+    return null;
+  };
+  const squadRestrictionText = getSquadRestrictionText();
+  const hasRestrictions = Boolean(ageRestrictionText || squadRestrictionText);
+
   const getStatusBadge = () => {
+    if (tournament.status === "CANCELLED" || tournament.status === "CANCELADO") {
+      return {
+        text: "TORNEIO CANCELADO",
+        classes: "bg-red-500/20 text-red-400 border-red-500/40 shadow-lg shadow-red-500/20",
+        dotClass: "bg-red-400",
+      };
+    }
     if (tournament.status === "FINALIZADO" || tournament.status === "COMPLETED") {
       return {
         text: "FINALIZADO",
         classes: "bg-zinc-800/90 text-zinc-300 border-zinc-700",
+        dotClass: "bg-zinc-400",
       };
     }
     if (
@@ -362,29 +444,34 @@ export default function DetalhesTorneioPage() {
       return {
         text: "TORNEIO EM ANDAMENTO",
         classes: "bg-amber-500/90 text-white border-amber-400/40 shadow-lg shadow-amber-500/25",
+        dotClass: "bg-white",
       };
     }
     if (tournament.status === "CLOSED") {
       return {
         text: "INSCRIÇÕES ENCERRADAS",
         classes: "bg-red-500/90 text-white border-red-400/40 shadow-lg shadow-red-500/25",
+        dotClass: "bg-white",
       };
     }
     if (tournament.status === "OPEN" && vagasRestantes <= 0) {
       return {
         text: "VAGAS ESGOTADAS",
         classes: "bg-zinc-800/90 text-zinc-300 border-zinc-700",
+        dotClass: "bg-zinc-400",
       };
     }
     if (tournament.status === "OPEN") {
       return {
         text: "INSCRIÇÕES ABERTAS",
         classes: "bg-emerald-500/90 text-white border-emerald-400/40 shadow-lg shadow-emerald-500/25",
+        dotClass: "bg-white",
       };
     }
     return {
       text: "INSCRIÇÕES ENCERRADAS",
       classes: "bg-zinc-800/90 text-zinc-300 border-zinc-700",
+      dotClass: "bg-zinc-400",
     };
   };
 
@@ -420,7 +507,7 @@ export default function DetalhesTorneioPage() {
               <span
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider border ${statusBadge.classes}`}
               >
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span className={`w-2 h-2 rounded-full ${statusBadge.dotClass || "bg-white"} animate-pulse`} />
                 <span>{statusBadge.text}</span>
               </span>
             </div>
@@ -522,17 +609,120 @@ export default function DetalhesTorneioPage() {
                     </span>
                   </div>
 
-                  <div className="bg-[#121214] border border-zinc-800/80 rounded-xl p-3.5">
-                    <span className="text-[11px] text-zinc-500 font-bold uppercase block mb-1">
-                      Capacidade
-                    </span>
-                    <span className="text-sm font-black text-white flex items-center gap-1.5">
-                      <Users className="h-4 w-4 text-blue-400" />
-                      <span>{tournament.max_teams || 16} vagas</span>
+                    <div className="bg-[#121214] border border-zinc-800/80 rounded-xl p-3.5">
+                      <span className="text-[11px] text-zinc-500 font-bold uppercase block mb-1">
+                        Capacidade
+                      </span>
+                      <span className="text-sm font-black text-white flex items-center gap-1.5">
+                        <Users className="h-4 w-4 text-blue-400" />
+                        <span>{tournament.max_teams || 16} vagas</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Avisos de Restrições da Competição (Idade e Elenco) */}
+                  {hasRestrictions && (
+                    <div className="pt-3 border-t border-zinc-800/80 space-y-2 animate-fadeIn">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                        <Shield className="h-3.5 w-3.5 text-purple-400" />
+                        <span>Restrições e Elegibilidade</span>
+                      </span>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {ageRestrictionText && (
+                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-bold">
+                            <Calendar className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                            <span>{ageRestrictionText}</span>
+                          </div>
+                        )}
+
+                        {squadRestrictionText && (
+                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold">
+                            <Users className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                            <span>{squadRestrictionText}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+              {/* Vitrine de Premiação (Pódio Oficial: 1º, 2º e 3º Lugar) */}
+              {hasPrizes && (
+                <div className="bg-[#18181b] border border-amber-500/30 rounded-2xl p-6 shadow-xl space-y-4 relative overflow-hidden">
+                  {/* Efeito Glow / Gradiente sutil */}
+                  <div className="absolute -top-16 -right-16 w-56 h-56 bg-gradient-to-br from-amber-500/10 to-yellow-600/5 rounded-full blur-3xl pointer-events-none" />
+
+                  <div className="flex items-center justify-between relative z-10">
+                    <h2 className="text-sm font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                      <Award className="h-5 w-5 text-amber-400" />
+                      <span>Premiação da Competição</span>
+                    </h2>
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                      🏆 Pódio Oficial
                     </span>
                   </div>
+
+                  <div className={`grid ${prizeGridColsClass} gap-3.5 pt-1 relative z-10`}>
+                    {/* 🥇 1º Lugar */}
+                    {tournament.prize_first && tournament.prize_first.trim().length > 0 && (
+                      <div className="rounded-xl p-4 bg-gradient-to-b from-amber-500/15 via-amber-950/20 to-[#121214] border border-amber-500/40 relative overflow-hidden group hover:border-amber-400 transition-all shadow-lg shadow-amber-500/5">
+                        <div className="flex items-center gap-2.5 mb-2.5">
+                          <span className="text-2xl leading-none select-none" role="img" aria-label="1º Lugar">
+                            🥇
+                          </span>
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block font-display">
+                              1º Lugar • Campeão
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-sm font-bold text-zinc-100 break-words leading-snug">
+                          {tournament.prize_first}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 🥈 2º Lugar */}
+                    {tournament.prize_second && tournament.prize_second.trim().length > 0 && (
+                      <div className="rounded-xl p-4 bg-gradient-to-b from-slate-400/15 via-slate-900/20 to-[#121214] border border-slate-400/40 relative overflow-hidden group hover:border-slate-300 transition-all shadow-lg shadow-slate-400/5">
+                        <div className="flex items-center gap-2.5 mb-2.5">
+                          <span className="text-2xl leading-none select-none" role="img" aria-label="2º Lugar">
+                            🥈
+                          </span>
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 block font-display">
+                              2º Lugar • Vice-Campeão
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-sm font-bold text-zinc-100 break-words leading-snug">
+                          {tournament.prize_second}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 🥉 3º Lugar */}
+                    {tournament.prize_third && tournament.prize_third.trim().length > 0 && (
+                      <div className="rounded-xl p-4 bg-gradient-to-b from-amber-800/15 via-amber-950/20 to-[#121214] border border-amber-700/40 relative overflow-hidden group hover:border-amber-600 transition-all shadow-lg shadow-amber-800/5">
+                        <div className="flex items-center gap-2.5 mb-2.5">
+                          <span className="text-2xl leading-none select-none" role="img" aria-label="3º Lugar">
+                            🥉
+                          </span>
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 block font-display">
+                              3º Lugar • 3ª Posição
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-sm font-bold text-zinc-100 break-words leading-snug">
+                          {tournament.prize_third}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Localização & Mapa Reativo com Google Maps Iframe */}
               <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
@@ -585,6 +775,21 @@ export default function DetalhesTorneioPage() {
                   <p className="text-xs text-zinc-500 italic">
                     Regulamento padrão da SportConnect aplicado: eliminatória simples (mata-mata), pontuação oficial da federação e tolerância de 15 minutos para atrasos.
                   </p>
+                )}
+
+                {tournament.rulebook_url && (
+                  <div className="pt-1">
+                    <a
+                      href={tournament.rulebook_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600/15 hover:bg-red-600/25 border border-red-500/30 text-red-400 hover:text-red-300 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>Visualizar Regulamento em PDF</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
                 )}
               </div>
 
@@ -742,12 +947,31 @@ export default function DetalhesTorneioPage() {
 
                         <button
                           type="button"
+                          disabled={isTournamentNotOpen}
                           onClick={handleCancelRegistration}
-                          className="w-full py-2.5 px-4 rounded-xl border border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
+                          className={`w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm ${isTournamentNotOpen
+                              ? "border-zinc-800 bg-zinc-900/50 text-zinc-600 cursor-not-allowed opacity-60"
+                              : "border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 cursor-pointer active:scale-95"
+                            }`}
+                          title={
+                            isTournamentNotOpen
+                              ? "Cancelamento indisponível após o fechamento das chaves."
+                              : undefined
+                          }
                         >
-                          <Ban className="h-3.5 w-3.5 text-red-400" />
+                          {isTournamentNotOpen ? (
+                            <Lock className="h-3.5 w-3.5 text-zinc-600" />
+                          ) : (
+                            <Ban className="h-3.5 w-3.5 text-red-400" />
+                          )}
                           <span>Cancelar Minha Inscrição</span>
                         </button>
+                        {isTournamentNotOpen && (
+                          <p className="text-[11px] text-zinc-500 text-center font-medium mt-1 flex items-center justify-center gap-1">
+                            <Lock className="h-3 w-3 shrink-0 text-zinc-500" />
+                            <span>Cancelamento indisponível após o fechamento das chaves.</span>
+                          </p>
+                        )}
                       </div>
                     ) : registrationStatus === "WAITING_APPROVAL" ? (
                       <div className="space-y-2.5">
@@ -760,12 +984,31 @@ export default function DetalhesTorneioPage() {
                         </p>
                         <button
                           type="button"
+                          disabled={isTournamentNotOpen}
                           onClick={handleCancelRegistration}
-                          className="w-full py-2.5 px-4 rounded-xl border border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
+                          className={`w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm ${isTournamentNotOpen
+                              ? "border-zinc-800 bg-zinc-900/50 text-zinc-600 cursor-not-allowed opacity-60"
+                              : "border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 cursor-pointer active:scale-95"
+                            }`}
+                          title={
+                            isTournamentNotOpen
+                              ? "Cancelamento indisponível após o fechamento das chaves."
+                              : undefined
+                          }
                         >
-                          <Ban className="h-3.5 w-3.5 text-red-400" />
+                          {isTournamentNotOpen ? (
+                            <Lock className="h-3.5 w-3.5 text-zinc-600" />
+                          ) : (
+                            <Ban className="h-3.5 w-3.5 text-red-400" />
+                          )}
                           <span>Cancelar Minha Inscrição</span>
                         </button>
+                        {isTournamentNotOpen && (
+                          <p className="text-[11px] text-zinc-500 text-center font-medium mt-1 flex items-center justify-center gap-1">
+                            <Lock className="h-3 w-3 shrink-0 text-zinc-500" />
+                            <span>Cancelamento indisponível após o fechamento das chaves.</span>
+                          </p>
+                        )}
                       </div>
                     ) : registrationStatus === "WAITING_PIX" || registrationStatus === "PENDING" ? (
                       <div className="space-y-2.5">
@@ -781,14 +1024,43 @@ export default function DetalhesTorneioPage() {
 
                         <button
                           type="button"
+                          disabled={isTournamentNotOpen}
                           onClick={handleCancelRegistration}
-                          className="w-full py-2.5 px-4 rounded-xl border border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
+                          className={`w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm ${isTournamentNotOpen
+                              ? "border-zinc-800 bg-zinc-900/50 text-zinc-600 cursor-not-allowed opacity-60"
+                              : "border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 cursor-pointer active:scale-95"
+                            }`}
+                          title={
+                            isTournamentNotOpen
+                              ? "Cancelamento indisponível após o fechamento das chaves."
+                              : undefined
+                          }
                         >
-                          <Ban className="h-3.5 w-3.5 text-red-400" />
+                          {isTournamentNotOpen ? (
+                            <Lock className="h-3.5 w-3.5 text-zinc-600" />
+                          ) : (
+                            <Ban className="h-3.5 w-3.5 text-red-400" />
+                          )}
                           <span>Cancelar Minha Inscrição</span>
                         </button>
+                        {isTournamentNotOpen && (
+                          <p className="text-[11px] text-zinc-500 text-center font-medium mt-1 flex items-center justify-center gap-1">
+                            <Lock className="h-3 w-3 shrink-0 text-zinc-500" />
+                            <span>Cancelamento indisponível após o fechamento das chaves.</span>
+                          </p>
+                        )}
                       </div>
                     ) : null
+                  ) : (tournament.status === "CANCELLED" || tournament.status === "CANCELADO") ? (
+                    <div className="w-full p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-center shadow-sm animate-fadeIn space-y-1">
+                      <div className="flex items-center justify-center gap-2 text-red-400 font-black text-sm uppercase tracking-wider">
+                        <Ban className="h-4 w-4 text-red-400 shrink-0" />
+                        <span>Torneio Cancelado</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 font-medium">
+                        Este evento foi cancelado pela organização.
+                      </p>
+                    </div>
                   ) : tournament.status === "OPEN" && vagasRestantes > 0 ? (
                     <button
                       type="button"
@@ -989,8 +1261,14 @@ export default function DetalhesTorneioPage() {
               </button>
               <button
                 type="button"
+                disabled={isTournamentNotOpen}
                 onClick={() => executeCancelRegistration("REFUND_REQUESTED")}
-                className="py-2.5 px-5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-red-600/30 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                className="py-2.5 px-5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-red-600/30 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  isTournamentNotOpen
+                    ? "Cancelamento indisponível após o fechamento das chaves."
+                    : undefined
+                }
               >
                 <Ban className="h-3.5 w-3.5" />
                 <span>Confirmar Cancelamento</span>

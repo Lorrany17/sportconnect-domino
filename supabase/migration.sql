@@ -326,6 +326,60 @@ ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS detailed_score JSONB DEFAULT
 ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS penalties_a INTEGER DEFAULT 0;
 ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS penalties_b INTEGER DEFAULT 0;
 
+-- 21. Suporte a Multi-step, Formato de Torneio, Tipo de Chave Pix e Upload de Regulamento PDF
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS tournament_format TEXT DEFAULT 'KNOCKOUT';
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS pix_key_type TEXT DEFAULT 'CPF';
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS rulebook_url TEXT;
 
+-- Bucket de Storage para Documentos e Regulamentos (tournament-documents)
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('tournament-documents', 'tournament-documents', true) 
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir leitura pública de regulamentos e documentos'
+    ) THEN
+        CREATE POLICY "Permitir leitura pública de regulamentos e documentos" 
+        ON storage.objects FOR SELECT 
+        USING (bucket_id = 'tournament-documents');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir upload de regulamentos e documentos'
+    ) THEN
+        CREATE POLICY "Permitir upload de regulamentos e documentos" 
+        ON storage.objects FOR INSERT 
+        WITH CHECK (bucket_id = 'tournament-documents');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Permitir update de regulamentos e documentos'
+    ) THEN
+        CREATE POLICY "Permitir update de regulamentos e documentos" 
+        ON storage.objects FOR UPDATE 
+        USING (bucket_id = 'tournament-documents');
+    END IF;
+END $$;
+
+-- 22. Suporte a Regras Dinâmicas de Partida por Modalidade (match_rules)
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS match_rules JSONB DEFAULT '{}'::jsonb;
+
+-- 23. Padronização da Check Constraint para status do Torneio (incluindo 'CANCELLED')
+ALTER TABLE public.tournaments DROP CONSTRAINT IF EXISTS tournaments_status_check;
+ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_status_check 
+    CHECK (status IN ('OPEN', 'ATIVO', 'IN_PROGRESS', 'EM_ANDAMENTO', 'COMPLETED', 'FINALIZADO', 'CANCELLED', 'CANCELADO'));
+
+-- 24. Suporte a Vitrine de Premiação (prize_first, prize_second, prize_third)
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS prize_first TEXT;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS prize_second TEXT;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS prize_third TEXT;
+
+-- 25. Restrições de Inscrição (min_players, max_players, min_age, max_age)
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS min_players INTEGER;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS max_players INTEGER;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS min_age INTEGER;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS max_age INTEGER;
 
 

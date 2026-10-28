@@ -27,6 +27,7 @@ import {
   CreditCard,
   AlertTriangle,
   X,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthProvider";
 import { useTournament } from "@/context/TournamentContext";
@@ -34,6 +35,7 @@ import { supabase } from "@/lib/supabase";
 import { Tournament, SportType } from "@/types";
 import CreateTournamentModal from "@/components/CreateTournamentModal";
 import PixCheckoutForm from "@/components/PixCheckoutForm";
+import { cancelRegistration } from "@/app/actions/registration";
 
 export interface MyRegistration {
   id: string; // Team ID
@@ -301,6 +303,11 @@ export default function HubCentral() {
 
   // Ação de Cancelamento de Inscrição pelo Atleta
   const handleRequestCancellation = (reg: MyRegistration) => {
+    if (reg.tournament?.status && reg.tournament.status !== "OPEN") {
+      alert("Não é possível cancelar a inscrição: o chaveamento do torneio já foi gerado.");
+      return;
+    }
+
     const isPaid = reg.status === "PAID" || reg.payment_status === "PAID" || reg.payment_status === "APPROVED";
 
     if (isPaid) {
@@ -319,14 +326,11 @@ export default function HubCentral() {
   const executeCancellation = async (teamId: string, status: "REQUESTED_BY_ATHLETE" | "REFUND_REQUESTED") => {
     setIsCancellingId(teamId);
     try {
-      const { error } = await supabase
-        .from("teams")
-        .update({ cancellation_status: status })
-        .eq("id", teamId);
+      const res = await cancelRegistration(teamId, status);
 
-      if (error) {
-        console.error("Erro ao solicitar cancelamento:", error);
-        alert(`Erro ao solicitar cancelamento: ${error.message}`);
+      if (!res.success) {
+        console.error("Erro ao solicitar cancelamento via Server Action:", res.error);
+        alert(res.error || "Erro ao solicitar cancelamento.");
         return;
       }
 
@@ -339,9 +343,9 @@ export default function HubCentral() {
       );
 
       setCancellingPaidReg(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Exceção ao solicitar cancelamento:", err);
-      alert("Erro ao solicitar cancelamento da inscrição.");
+      alert(err?.message || "Erro ao solicitar cancelamento da inscrição.");
     } finally {
       setIsCancellingId(null);
     }
@@ -638,6 +642,7 @@ export default function HubCentral() {
                     const isWaitingApproval = !isApproved && (reg.payment_status === "WAITING_APPROVAL" || Boolean(reg.payment_proof_url));
                     const isWaitingPix = !isApproved && !isWaitingApproval && reg.payment_status === "WAITING_PIX";
                     const isPending = !isApproved && !isWaitingApproval && !isWaitingPix;
+                    const isTournamentNotOpen = Boolean(reg.tournament?.status && reg.tournament.status !== "OPEN");
 
                     return (
                       <div
@@ -794,16 +799,37 @@ export default function HubCentral() {
                               {/* Botão Cancelar Minha Inscrição */}
                               <button
                                 type="button"
+                                disabled={isTournamentNotOpen}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (isTournamentNotOpen) return;
                                   handleRequestCancellation(reg);
                                 }}
-                                className="w-full py-2 px-3 rounded-xl border border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-                                title="Solicitar cancelamento da inscrição"
+                                className={`w-full py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm ${
+                                  isTournamentNotOpen
+                                    ? "border-zinc-800 bg-zinc-900/50 text-zinc-600 cursor-not-allowed opacity-60"
+                                    : "border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 cursor-pointer active:scale-95"
+                                }`}
+                                title={
+                                  isTournamentNotOpen
+                                    ? "Cancelamento indisponível após o fechamento das chaves."
+                                    : "Solicitar cancelamento da inscrição"
+                                }
                               >
-                                <Ban className="h-3.5 w-3.5 text-red-400" />
+                                {isTournamentNotOpen ? (
+                                  <Lock className="h-3.5 w-3.5 text-zinc-600" />
+                                ) : (
+                                  <Ban className="h-3.5 w-3.5 text-red-400" />
+                                )}
                                 <span>Cancelar Minha Inscrição</span>
                               </button>
+
+                              {isTournamentNotOpen && (
+                                <p className="text-[10px] text-zinc-500 text-center font-medium mt-1 flex items-center justify-center gap-1">
+                                  <Lock className="h-3 w-3 shrink-0 text-zinc-500" />
+                                  <span>Cancelamento indisponível após o fechamento das chaves.</span>
+                                </p>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1096,9 +1122,18 @@ export default function HubCentral() {
               </button>
               <button
                 type="button"
-                disabled={isCancellingId === cancellingPaidReg.id}
+                disabled={
+                  isCancellingId === cancellingPaidReg.id ||
+                  (Boolean(cancellingPaidReg.tournament?.status) &&
+                    cancellingPaidReg.tournament?.status !== "OPEN")
+                }
                 onClick={() => executeCancellation(cancellingPaidReg.id, "REFUND_REQUESTED")}
-                className="py-2.5 px-5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-red-600/30 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                className="py-2.5 px-5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-red-600/30 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  cancellingPaidReg.tournament?.status !== "OPEN"
+                    ? "Cancelamento indisponível após o fechamento das chaves."
+                    : undefined
+                }
               >
                 {isCancellingId === cancellingPaidReg.id ? (
                   <>

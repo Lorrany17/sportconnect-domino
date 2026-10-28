@@ -18,10 +18,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Buscar a equipe no Supabase para obter o mp_payment_id
+    // 1. Buscar a equipe no Supabase para obter o mp_payment_id e tournament_id
     const { data: team, error: teamError } = await supabase
       .from("teams")
-      .select("id, name, mp_payment_id, payment_status, cancellation_status")
+      .select("id, name, mp_payment_id, payment_status, cancellation_status, tournament_id")
       .eq("id", teamId)
       .maybeSingle();
 
@@ -30,6 +30,26 @@ export async function POST(request: Request) {
         { error: "Equipe não encontrada." },
         { status: 404 }
       );
+    }
+
+    // Trava de Segurança: Verificar se o torneio ainda permite cancelamento/estorno
+    if (team.tournament_id) {
+      const { data: tournament, error: tourError } = await supabase
+        .from("tournaments")
+        .select("id, status")
+        .eq("id", team.tournament_id)
+        .maybeSingle();
+
+      if (tourError) {
+        console.warn("Aviso ao buscar torneio na rota de estorno:", tourError);
+      }
+
+      if (tournament && tournament.status !== "OPEN") {
+        return NextResponse.json(
+          { error: "Não é possível cancelar a inscrição: o chaveamento do torneio já foi gerado." },
+          { status: 400 }
+        );
+      }
     }
 
     // 2. Chamar o SDK do Mercado Pago para solicitar o reembolso/estorno

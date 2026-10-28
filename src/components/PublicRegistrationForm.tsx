@@ -58,6 +58,43 @@ export default function PublicRegistrationForm({
     sportType === "FUTSAL" ||
     (sportType === "VOLEI" && !format.includes("duplas"));
 
+  // Restrições de Inscrição da Competição
+  const getAgeRestrictionText = () => {
+    const min = tournament.min_age;
+    const max = tournament.max_age;
+    if (min !== null && min !== undefined && max !== null && max !== undefined) {
+      return `Faixa Etária: ${min} a ${max} anos`;
+    }
+    if (min !== null && min !== undefined) {
+      return `A partir de ${min} anos`;
+    }
+    if (max !== null && max !== undefined) {
+      return `Até ${max} anos`;
+    }
+    return null;
+  };
+  const ageRestrictionText = getAgeRestrictionText();
+
+  const getSquadRestrictionText = () => {
+    const min = tournament.min_players;
+    const max = tournament.max_players;
+    if (min !== null && min !== undefined && max !== null && max !== undefined) {
+      if (min === max) {
+        return `Exatamente ${min} atletas por equipa`;
+      }
+      return `De ${min} a ${max} atletas por equipa`;
+    }
+    if (min !== null && min !== undefined) {
+      return `Mínimo de ${min} atletas por equipa`;
+    }
+    if (max !== null && max !== undefined) {
+      return `Até ${max} atletas por equipa`;
+    }
+    return null;
+  };
+  const squadRestrictionText = getSquadRestrictionText();
+  const hasRestrictions = Boolean(ageRestrictionText || squadRestrictionText);
+
   // Fluxo de Etapas (form -> checkout pix)
   const [step, setStep] = useState<"form" | "checkout">("form");
   const [createdTeam, setCreatedTeam] = useState<Team | null>(null);
@@ -277,6 +314,22 @@ export default function PublicRegistrationForm({
         p2 = "";
         const validAthletes = athletes.map((a) => a.name.trim()).filter(Boolean);
         compiledRoster = [p1, ...validAthletes];
+      }
+
+      // Validação de Tamanho do Elenco (se configurado pelo organizador)
+      if (tournament.min_players && compiledRoster.length < tournament.min_players) {
+        setErrorMessage(
+          `O elenco deve ter no mínimo ${tournament.min_players} atletas (atualmente possui ${compiledRoster.length}). Adicione mais membros à equipe.`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+      if (tournament.max_players && compiledRoster.length > tournament.max_players) {
+        setErrorMessage(
+          `O elenco não pode exceder ${tournament.max_players} atletas (atualmente possui ${compiledRoster.length}). Remova membros excedentes.`
+        );
+        setIsSubmitting(false);
+        return;
       }
 
       // 3. Upload Obrigatório do Comprovante (se anexado pelo atleta) ANTES do INSERT na tabela teams
@@ -535,6 +588,36 @@ export default function PublicRegistrationForm({
                 {tournament.format ? ` • Formato: ${tournament.format}` : ""}
               </p>
             </div>
+
+            {/* Aviso Visual de Restrições da Competição (Idade e Elenco) */}
+            {hasRestrictions && (
+              <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-200 text-xs space-y-2 animate-fadeIn shadow-lg shadow-purple-500/5">
+                <div className="flex items-center gap-2 font-black uppercase tracking-wider text-purple-400 text-[11px]">
+                  <Shield className="h-4 w-4 shrink-0 text-purple-400" />
+                  <span>Aviso de Restrições Oficiais da Competição</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
+                  {ageRestrictionText && (
+                    <div className="flex items-center gap-2.5 bg-[#18181b] p-2.5 rounded-xl border border-purple-500/25">
+                      <span className="text-base select-none">🎂</span>
+                      <div>
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase block">Idade Permitida</span>
+                        <span className="font-bold text-zinc-100">{ageRestrictionText}</span>
+                      </div>
+                    </div>
+                  )}
+                  {squadRestrictionText && (
+                    <div className="flex items-center gap-2.5 bg-[#18181b] p-2.5 rounded-xl border border-cyan-500/25">
+                      <span className="text-base select-none">👥</span>
+                      <div>
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase block">Tamanho do Elenco</span>
+                        <span className="font-bold text-zinc-100">{squadRestrictionText}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Mensagem de Erro Visual */}
             {errorMessage && (

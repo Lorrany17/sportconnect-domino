@@ -180,6 +180,13 @@ export default function OrganizerDashboard({
             organizer_pix_key: tourData.organizer_pix_key,
             sponsors: tourData.sponsors || [],
             custom_registration_fields: tourData.custom_registration_fields,
+            prize_first: tourData.prize_first,
+            prize_second: tourData.prize_second,
+            prize_third: tourData.prize_third,
+            min_players: tourData.min_players,
+            max_players: tourData.max_players,
+            min_age: tourData.min_age,
+            max_age: tourData.max_age,
           };
           setDbTournament(mappedTour);
         } else {
@@ -288,7 +295,7 @@ export default function OrganizerDashboard({
     if (!currentTour?.id || !canEditSettings) return;
     setShowOptionsMenu(false);
 
-    const isAlreadyCanceled = currentTour.status === "CANCELADO";
+    const isAlreadyCanceled = currentTour.status === "CANCELLED" || currentTour.status === "CANCELADO";
     const confirmMsg = isAlreadyCanceled
       ? "Deseja reativar este torneio para o status ATIVO?"
       : "Tem a certeza que deseja cancelar este torneio? O status será alterado para CANCELADO.";
@@ -297,7 +304,7 @@ export default function OrganizerDashboard({
 
     setIsCanceling(true);
     try {
-      const nextStatus = isAlreadyCanceled ? "ATIVO" : "CANCELADO";
+      const nextStatus = isAlreadyCanceled ? "ATIVO" : "CANCELLED";
       const { error } = await supabase
         .from("tournaments")
         .update({ status: nextStatus })
@@ -946,7 +953,7 @@ export default function OrganizerDashboard({
                       >
                         <Ban className="h-4 w-4 shrink-0 text-amber-400" />
                         <span>
-                          {currentTour?.status === "CANCELADO"
+                          {currentTour?.status === "CANCELLED" || currentTour?.status === "CANCELADO"
                             ? "Reativar Torneio"
                             : "Cancelar Torneio"}
                         </span>
@@ -1023,7 +1030,7 @@ export default function OrganizerDashboard({
                 {sportLabel}
               </span>
 
-              {currentTour?.status === "CANCELADO" && (
+              {(currentTour?.status === "CANCELLED" || currentTour?.status === "CANCELADO") && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-black uppercase tracking-wider animate-pulse backdrop-blur-sm">
                   <Ban className="h-3.5 w-3.5" />
                   <span>Torneio Cancelado</span>

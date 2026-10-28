@@ -49,8 +49,19 @@ export default function TournamentDashboardPage() {
             cover_url: data.cover_url,
             gender_category: data.gender_category,
             organizer_pix_key: data.organizer_pix_key,
+            tournament_format: data.tournament_format,
+            pix_key_type: data.pix_key_type,
+            rulebook_url: data.rulebook_url,
+            match_rules: data.match_rules,
             sponsors: data.sponsors || [],
             custom_registration_fields: data.custom_registration_fields,
+            prize_first: data.prize_first,
+            prize_second: data.prize_second,
+            prize_third: data.prize_third,
+            min_players: data.min_players,
+            max_players: data.max_players,
+            min_age: data.min_age,
+            max_age: data.max_age,
           });
         }
       } catch (err) {

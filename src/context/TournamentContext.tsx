@@ -510,8 +510,19 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         cover_url: t.cover_url,
         gender_category: t.gender_category,
         organizer_pix_key: t.organizer_pix_key,
+        tournament_format: t.tournament_format,
+        pix_key_type: t.pix_key_type,
+        rulebook_url: t.rulebook_url,
+        match_rules: t.match_rules,
         sponsors: t.sponsors || [],
         custom_registration_fields: t.custom_registration_fields,
+        prize_first: t.prize_first,
+        prize_second: t.prize_second,
+        prize_third: t.prize_third,
+        min_players: t.min_players,
+        max_players: t.max_players,
+        min_age: t.min_age,
+        max_age: t.max_age,
       }));
 
       setTournaments(mappedTournaments);

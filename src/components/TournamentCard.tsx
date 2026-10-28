@@ -62,6 +62,14 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
   const getStatusBadge = () => {
     const status = tournament.status;
 
+    if (status === "CANCELLED" || status === "CANCELADO") {
+      return {
+        text: "TORNEIO CANCELADO",
+        classes: "bg-red-500/20 text-red-400 border-red-500/40 shadow-lg shadow-red-500/20",
+        dot: "bg-red-400",
+      };
+    }
+
     if (status === "FINALIZADO" || status === "COMPLETED") {
       return {
         text: "FINALIZADO",

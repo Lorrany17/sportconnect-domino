@@ -2,6 +2,11 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import {
+  cancelRegistration as baseCancelRegistration,
+  type CancelRegistrationParams,
+  type CancelRegistrationResponse,
+} from "./registration";
 
 export interface GenerateBracketResponse {
   success: boolean;
@@ -679,4 +684,18 @@ export async function generateBracket(
     });
   }
 
+export async function cancelRegistration(
+  teamIdOrParams: string | CancelRegistrationParams,
+  cancellationStatus: "REQUESTED_BY_ATHLETE" | "REFUND_REQUESTED" | string = "REQUESTED_BY_ATHLETE",
+  userAuthToken?: string
+): Promise<CancelRegistrationResponse> {
+  return await baseCancelRegistration(teamIdOrParams, cancellationStatus, userAuthToken);
+}
 
+export async function withdrawFromTournament(
+  teamIdOrParams: string | CancelRegistrationParams,
+  cancellationStatus: "REQUESTED_BY_ATHLETE" | "REFUND_REQUESTED" | string = "REQUESTED_BY_ATHLETE",
+  userAuthToken?: string
+): Promise<CancelRegistrationResponse> {
+  return await baseCancelRegistration(teamIdOrParams, cancellationStatus, userAuthToken);
+}
