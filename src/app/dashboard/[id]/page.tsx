@@ -43,10 +43,13 @@ export default function TournamentDashboardPage() {
             entry_fee: data.entry_fee ? Number(data.entry_fee) : 0,
             location: data.location,
             start_date: data.start_date,
+            start_time: data.start_time,
             end_date: data.end_date,
             rules: data.rules,
             cover_url: data.cover_url,
+            gender_category: data.gender_category,
             organizer_pix_key: data.organizer_pix_key,
+            sponsors: data.sponsors || [],
             custom_registration_fields: data.custom_registration_fields,
           });
         }

@@ -22,6 +22,11 @@ import {
   Ban,
   Network,
   Building2,
+  CreditCard,
+  AlertTriangle,
+  X,
+  Lock,
+  Swords,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
@@ -30,6 +35,7 @@ import { Tournament, SportType, Team } from "@/types";
 import { DEFAULT_COVERS, SPORT_SELECT_OPTIONS } from "@/components/CreateTournamentForm";
 import PublicRegistrationForm from "@/components/PublicRegistrationForm";
 import PublicHeader from "@/components/PublicHeader";
+import PixCheckoutForm from "@/components/PixCheckoutForm";
 
 export default function DetalhesTorneioPage() {
   const params = useParams();
@@ -49,6 +55,10 @@ export default function DetalhesTorneioPage() {
   const [registeredTeamId, setRegisteredTeamId] = useState<string | null>(null);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [tournamentTeams, setTournamentTeams] = useState<Team[]>([]);
+
+  // Modais de pagamento e cancelamento pós-pagamento
+  const [showPaidCancelModal, setShowPaidCancelModal] = useState<boolean>(false);
+  const [showResumeCheckout, setShowResumeCheckout] = useState<boolean>(false);
 
   // Verificação de inscrição do usuário autenticado no torneio
   useEffect(() => {
@@ -127,6 +137,7 @@ export default function DetalhesTorneioPage() {
             entry_fee: data.entry_fee ? Number(data.entry_fee) : 0,
             location: data.location,
             start_date: data.start_date,
+            start_time: data.start_time,
             end_date: data.end_date,
             rules: data.rules,
             cover_url: data.cover_url,
@@ -184,19 +195,38 @@ export default function DetalhesTorneioPage() {
     fetchTournament();
   }, [id, contextTournaments]);
 
-  // Formatação de data
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "A definir";
+  // Formatação de data e horário do evento
+  const formatDate = (dateString?: string, timeString?: string) => {
+    if (!dateString) return "Data a definir";
     try {
-      const d = new Date(dateString);
-      if (isNaN(d.getTime())) return "A definir";
-      return d.toLocaleDateString("pt-BR", {
-        day: "2-digit",
+      let d: Date;
+      if (typeof dateString === "string" && dateString.includes("-")) {
+        const datePart = dateString.split("T")[0];
+        const parts = datePart.split("-").map(Number);
+        if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          d = new Date(parts[0], parts[1] - 1, parts[2]);
+        } else {
+          d = new Date(dateString);
+        }
+      } else {
+        d = new Date(dateString);
+      }
+
+      if (isNaN(d.getTime())) return "Data a definir";
+
+      const formatted = d.toLocaleDateString("pt-BR", {
+        day: "numeric",
         month: "long",
         year: "numeric",
       });
+
+      if (timeString && timeString.trim()) {
+        return `${formatted} às ${timeString.trim()}`;
+      }
+
+      return formatted;
     } catch {
-      return "A definir";
+      return "Data a definir";
     }
   };
 
@@ -212,6 +242,11 @@ export default function DetalhesTorneioPage() {
   // Clique no botão de Inscrição
   const handleEnrollClick = () => {
     if (registrationStatus) return;
+
+    if (!tournament || tournament.status !== "OPEN" || vagasRestantes <= 0) {
+      alert("As inscrições para este torneio estão encerradas.");
+      return;
+    }
 
     if (!user) {
       setLoginNotice("Faça login para se inscrever");
@@ -229,18 +264,24 @@ export default function DetalhesTorneioPage() {
   const handleCancelRegistration = async () => {
     if (!registeredTeamId) return;
 
-    if (registrationStatus === "APPROVED" || registrationStatus === "WAITING_PIX") {
-      alert("Sua inscrição será cancelada e o organizador será notificado para realizar o estorno.");
-    } else {
-      if (!window.confirm("Deseja realmente cancelar sua inscrição nesta competição?")) {
-        return;
-      }
+    if (registrationStatus === "APPROVED" || registrationStatus === "PAID") {
+      setShowPaidCancelModal(true);
+      return;
     }
 
+    if (!window.confirm("Deseja realmente cancelar sua inscrição nesta competição?")) {
+      return;
+    }
+
+    await executeCancelRegistration("REQUESTED_BY_ATHLETE");
+  };
+
+  const executeCancelRegistration = async (status: "REQUESTED_BY_ATHLETE" | "REFUND_REQUESTED") => {
+    if (!registeredTeamId) return;
     try {
       const { error } = await supabase
         .from("teams")
-        .update({ cancellation_status: "REQUESTED_BY_ATHLETE" })
+        .update({ cancellation_status: status })
         .eq("id", registeredTeamId);
 
       if (error) {
@@ -249,7 +290,8 @@ export default function DetalhesTorneioPage() {
         return;
       }
 
-      setCancellationStatus("REQUESTED_BY_ATHLETE");
+      setCancellationStatus(status);
+      setShowPaidCancelModal(false);
     } catch (err) {
       console.error("Exceção ao solicitar cancelamento:", err);
       alert("Erro ao solicitar cancelamento.");
@@ -301,27 +343,53 @@ export default function DetalhesTorneioPage() {
   const sportMeta = SPORT_SELECT_OPTIONS.find((s) => s.id === sportType);
 
   // Status Badge
+  const maxSpots = tournament.max_teams || 16;
+  const vagasRestantes = Math.max(maxSpots - tournamentTeams.length, 0);
+  const isTournamentOpen = tournament.status === "OPEN";
+
   const getStatusBadge = () => {
-    if (tournament.status === "FINALIZADO") {
+    if (tournament.status === "FINALIZADO" || tournament.status === "COMPLETED") {
       return {
         text: "FINALIZADO",
         classes: "bg-zinc-800/90 text-zinc-300 border-zinc-700",
       };
     }
-    if (tournament.status === "EM_ANDAMENTO" || tournament.status === "LIVE") {
+    if (
+      tournament.status === "EM_ANDAMENTO" ||
+      tournament.status === "LIVE" ||
+      tournament.status === "IN_PROGRESS"
+    ) {
       return {
-        text: "AO VIVO",
+        text: "TORNEIO EM ANDAMENTO",
         classes: "bg-amber-500/90 text-white border-amber-400/40 shadow-lg shadow-amber-500/25",
       };
     }
+    if (tournament.status === "CLOSED") {
+      return {
+        text: "INSCRIÇÕES ENCERRADAS",
+        classes: "bg-red-500/90 text-white border-red-400/40 shadow-lg shadow-red-500/25",
+      };
+    }
+    if (tournament.status === "OPEN" && vagasRestantes <= 0) {
+      return {
+        text: "VAGAS ESGOTADAS",
+        classes: "bg-zinc-800/90 text-zinc-300 border-zinc-700",
+      };
+    }
+    if (tournament.status === "OPEN") {
+      return {
+        text: "INSCRIÇÕES ABERTAS",
+        classes: "bg-emerald-500/90 text-white border-emerald-400/40 shadow-lg shadow-emerald-500/25",
+      };
+    }
     return {
-      text: "INSCRIÇÕES ABERTAS",
-      classes: "bg-emerald-500/90 text-white border-emerald-400/40 shadow-lg shadow-emerald-500/25",
+      text: "INSCRIÇÕES ENCERRADAS",
+      classes: "bg-zinc-800/90 text-zinc-300 border-zinc-700",
     };
   };
 
   const statusBadge = getStatusBadge();
-  const isOpenForEnrollment = tournament.status === "ATIVO" || !tournament.status;
+  const isOpenForEnrollment = tournament.status === "OPEN" && vagasRestantes > 0;
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-[#e4e4e7] selection:bg-[#00a2ff]/30 selection:text-white flex flex-col justify-between">
@@ -379,7 +447,10 @@ export default function DetalhesTorneioPage() {
                 </span>
                 {tournament.gender_category && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-500/15 backdrop-blur-md border border-purple-500/30 text-xs font-bold text-purple-300">
-                    <span>{tournament.gender_category}</span>
+                    <span>
+                      {tournament.gender_category.charAt(0).toUpperCase() +
+                        tournament.gender_category.slice(1).toLowerCase()}
+                    </span>
                   </span>
                 )}
                 {tournament.format && (
@@ -403,7 +474,7 @@ export default function DetalhesTorneioPage() {
                 )}
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4 text-[#00a2ff]" />
-                  <span>{formatDate(tournament.start_date)}</span>
+                  <span>{formatDate(tournament.start_date, tournament.start_time)}</span>
                 </span>
               </div>
             </div>
@@ -620,8 +691,22 @@ export default function DetalhesTorneioPage() {
 
                 {/* Botão de Inscrição / Call to Action */}
                 <div className="space-y-3 pt-2">
-                  {isOpenForEnrollment ? (
-                    cancellationStatus === "REQUESTED_BY_ATHLETE" ? (
+                  {registrationStatus ? (
+                    cancellationStatus === "REFUND_REQUESTED" ? (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-4 px-6 rounded-xl bg-amber-500/15 border border-amber-500/35 cursor-not-allowed text-amber-400 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 text-center"
+                        >
+                          <AlertTriangle className="h-5 w-5 text-amber-400 animate-pulse" />
+                          <span>Reembolso Solicitado</span>
+                        </button>
+                        <p className="text-[11px] text-amber-300 text-center font-medium">
+                          Cancelamento pós-pagamento solicitado • O reembolso deve ser negociado diretamente com a organização.
+                        </p>
+                      </div>
+                    ) : cancellationStatus === "REQUESTED_BY_ATHLETE" ? (
                       <div className="space-y-2">
                         <button
                           type="button"
@@ -644,17 +729,35 @@ export default function DetalhesTorneioPage() {
                         <Ban className="h-5 w-5 text-red-400" />
                         <span>Inscrição Cancelada / Estornada</span>
                       </button>
-                    ) : registrationStatus === "APPROVED" ? (
+                    ) : registrationStatus === "APPROVED" || registrationStatus === "PAID" ? (
                       <div className="space-y-2.5">
                         <button
                           type="button"
                           disabled
-                          className="w-full py-4 px-6 rounded-xl bg-emerald-500/20 border border-emerald-500/40 cursor-not-allowed text-emerald-400 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 text-center"
+                          className="w-full py-4 px-6 rounded-xl bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 text-center shadow-[0_0_15px_rgba(16,185,129,0.3)]"
                         >
                           <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                          <span>Inscrição Aprovada!</span>
+                          <span>Inscrição Confirmada! ✅</span>
                         </button>
 
+                        <button
+                          type="button"
+                          onClick={handleCancelRegistration}
+                          className="w-full py-2.5 px-4 rounded-xl border border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
+                        >
+                          <Ban className="h-3.5 w-3.5 text-red-400" />
+                          <span>Cancelar Minha Inscrição</span>
+                        </button>
+                      </div>
+                    ) : registrationStatus === "WAITING_APPROVAL" ? (
+                      <div className="space-y-2.5">
+                        <div className="w-full py-4 px-6 rounded-xl bg-blue-500/15 border border-blue-500/35 text-blue-300 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 text-center shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                          <Clock className="h-5 w-5 text-blue-400 animate-pulse" />
+                          <span>Comprovante em Análise ⏳</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 text-center font-medium">
+                          Seu comprovante foi enviado com sucesso e está em análise pelo organizador.
+                        </p>
                         <button
                           type="button"
                           onClick={handleCancelRegistration}
@@ -666,13 +769,14 @@ export default function DetalhesTorneioPage() {
                       </div>
                     ) : registrationStatus === "WAITING_PIX" || registrationStatus === "PENDING" ? (
                       <div className="space-y-2.5">
+                        {/* Botão Finalizar Pagamento */}
                         <button
                           type="button"
-                          disabled
-                          className="w-full py-4 px-6 rounded-xl bg-amber-500/15 border border-amber-500/35 cursor-not-allowed text-amber-400 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 text-center"
+                          onClick={() => setShowResumeCheckout(true)}
+                          className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-500 hover:from-orange-400 hover:to-amber-300 text-neutral-950 font-black text-sm uppercase tracking-wider transition-all shadow-md shadow-orange-500/20 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
                         >
-                          <Clock className="h-5 w-5 text-amber-400" />
-                          <span>Aguardando Confirmação do Organizador</span>
+                          <CreditCard className="h-4 w-4" />
+                          <span>Finalizar Pagamento (Pix)</span>
                         </button>
 
                         <button
@@ -684,24 +788,21 @@ export default function DetalhesTorneioPage() {
                           <span>Cancelar Minha Inscrição</span>
                         </button>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleEnrollClick}
-                        className="w-full py-4 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-blue-600/30 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        <span>Inscrever Minha Equipe</span>
-                      </button>
-                    )
-                  ) : (
+                    ) : null
+                  ) : tournament.status === "OPEN" && vagasRestantes > 0 ? (
                     <button
                       type="button"
-                      disabled
-                      className="w-full py-4 px-6 rounded-xl bg-zinc-800 text-zinc-500 font-bold text-sm uppercase tracking-wider cursor-not-allowed text-center"
+                      onClick={handleEnrollClick}
+                      className="w-full py-4 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-blue-600/30 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
                     >
-                      Inscrições Encerradas
+                      <Sparkles className="h-4 w-4" />
+                      <span>Inscrever Minha Equipe</span>
                     </button>
+                  ) : (
+                    <div className="w-full py-4 px-6 rounded-xl bg-zinc-800/90 border border-zinc-700 text-zinc-400 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 text-center shadow-sm">
+                      <Lock className="h-4 w-4 text-zinc-400" />
+                      <span>🔒 Inscrições Encerradas</span>
+                    </div>
                   )}
 
                   {/* Ação secundária: Ver Chaveamento */}
@@ -817,6 +918,87 @@ export default function DetalhesTorneioPage() {
       <footer className="border-t border-[#27272a] py-6 text-center text-xs text-zinc-500 bg-[#141416]/50">
         <div>SportConnect • Portal de Competições Esportivas</div>
       </footer>
+
+      {/* Modal: Finalizar Pagamento (Retomar Checkout Pix) */}
+      {showResumeCheckout && tournament && registeredTeamId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto animate-fadeIn">
+          <PixCheckoutForm
+            tournamentId={tournament.id}
+            tournamentName={tournament.name}
+            teamId={registeredTeamId}
+            teamName={user?.user_metadata?.full_name || "Minha Equipe"}
+            captainName={user?.user_metadata?.full_name || "Capitão"}
+            totalAmount={tournament.entry_fee ? Number(tournament.entry_fee) : 0}
+            sportType={tournament.sport_type}
+            email={user?.email || undefined}
+            onClose={() => setShowResumeCheckout(false)}
+            onSuccess={() => {
+              setShowResumeCheckout(false);
+              setRegistrationStatus("WAITING_APPROVAL");
+              router.refresh();
+            }}
+          />
+        </div>
+      )}
+
+      {/* Modal de Aviso: Cancelamento Pós-Pagamento */}
+      {showPaidCancelModal && tournament && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fadeIn">
+          <div className="bg-[#141416] border border-red-500/40 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative space-y-5 animate-scaleUp">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-600 via-amber-500 to-red-500 rounded-t-3xl" />
+
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-400 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black font-display text-white">
+                    Aviso de Cancelamento
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    {tournament.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPaidCancelModal(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-red-950/30 border border-red-900/40 text-xs text-zinc-200 leading-relaxed space-y-2.5">
+              <p className="font-semibold text-red-300">
+                O seu pagamento já foi processado e transferido para o organizador.
+              </p>
+              <p className="text-zinc-300">
+                Ao cancelar, a sua vaga será perdida. O reembolso deve ser negociado diretamente com a organização do evento.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowPaidCancelModal(false)}
+                className="py-2.5 px-4 rounded-xl border border-zinc-700 hover:border-zinc-500 bg-zinc-800/80 text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer"
+              >
+                Voltar / Manter Vaga
+              </button>
+              <button
+                type="button"
+                onClick={() => executeCancelRegistration("REFUND_REQUESTED")}
+                className="py-2.5 px-5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-red-600/30 flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                <span>Confirmar Cancelamento</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

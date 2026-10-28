@@ -204,8 +204,10 @@ BEGIN
     END IF;
 END $$;
 
--- 14. Suporte a Categoria de Gênero (Masculino, Feminino, Misto) em tournaments
-ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS gender_category TEXT DEFAULT 'Misto';
+-- 14. Suporte a Categoria de Gênero (MASCULINO, FEMININO, MISTO) em tournaments
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS gender_category TEXT DEFAULT 'MISTO';
+ALTER TABLE public.tournaments DROP CONSTRAINT IF EXISTS tournaments_gender_category_check;
+ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_gender_category_check CHECK (gender_category IN ('MASCULINO', 'FEMININO', 'MISTO'));
 
 -- 15. Tabela de Membros de Equipe (team_members) para vínculo automático de atletas
 CREATE TABLE IF NOT EXISTS public.team_members (
@@ -274,5 +276,56 @@ BEGIN
         USING (bucket_id = 'sponsors');
     END IF;
 END $$;
+
+-- 17. Automação de Split de Pagamento Pix (Taxa 10% Plataforma / 90% Organizador)
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS payout_status TEXT DEFAULT 'PENDING';
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS payout_amount NUMERIC;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS payout_error TEXT;
+
+-- 18. Suporte a Horário do Torneio (start_time)
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS start_time TEXT;
+
+-- 19. Suporte a Chaveamento Mata-Mata Eliminatório (round, next_match_id, team1_id, team2_id, winner_id)
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS round INTEGER DEFAULT 1;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS next_match_id UUID REFERENCES public.matches(id) ON DELETE SET NULL;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS team1_id UUID REFERENCES public.teams(id) ON DELETE SET NULL;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS team2_id UUID REFERENCES public.teams(id) ON DELETE SET NULL;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS match_order INTEGER;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS winner_id UUID REFERENCES public.teams(id) ON DELETE SET NULL;
+
+-- Políticas de RLS para a tabela matches
+ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'matches' AND policyname = 'Permitir leitura pública de partidas'
+    ) THEN
+        CREATE POLICY "Permitir leitura pública de partidas"
+        ON public.matches FOR SELECT
+        USING (true);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'matches' AND policyname = 'Permitir escrita de partidas para organizadores autenticados'
+    ) THEN
+        CREATE POLICY "Permitir escrita de partidas para organizadores autenticados"
+        ON public.matches FOR ALL
+        TO authenticated
+        USING (true)
+        WITH CHECK (true);
+    END IF;
+END $$;
+
+-- 20. Suporte a Histórico Detalhado da Partida (set_history, sets_history, history, details, detailed_score, penalties_a, penalties_b)
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS set_history JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS sets_history JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS detailed_score JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS penalties_a INTEGER DEFAULT 0;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS penalties_b INTEGER DEFAULT 0;
+
+
 
 

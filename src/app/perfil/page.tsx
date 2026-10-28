@@ -1385,9 +1385,16 @@ export default function PerfilPage() {
                             </span>
                           )}
                         </div>
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase tracking-wider shrink-0">
-                          {team.status || "Ativo"}
-                        </span>
+                        {team.status === "PAID" || team.payment_status === "PAID" ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-black uppercase tracking-wider shrink-0 shadow-sm">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                            <span>Inscrição Confirmada! ✅</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase tracking-wider shrink-0">
+                            {team.status || "Ativo"}
+                          </span>
+                        )}
                       </div>
 
                       <div className="pt-2 border-t border-[#27272a]/60 flex items-center justify-between text-[11px] text-zinc-500">

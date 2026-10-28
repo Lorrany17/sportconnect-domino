@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useTournament } from "@/context/TournamentContext";
 
-interface RefereePanelProps {
+export interface RefereePanelProps {
   matches: Match[];
   onUpdateScore: (
     matchId: string,
@@ -116,8 +116,22 @@ export default function RefereePanel({
   const penA = selectedMatch ? selectedMatch.penaltiesA ?? 0 : 0;
   const penB = selectedMatch ? selectedMatch.penaltiesB ?? 0 : 0;
 
+  const selectedMatchSets = selectedMatch
+    ? (Array.isArray(selectedMatch.sets_history)
+        ? selectedMatch.sets_history
+        : typeof selectedMatch.sets_history === "string"
+        ? (() => {
+            try {
+              return JSON.parse(selectedMatch.sets_history);
+            } catch {
+              return [];
+            }
+          })()
+        : selectedMatch.historicoSets || [])
+    : [];
+
   const currentSetNumber = selectedMatch
-    ? (selectedMatch.historicoSets?.length || 0) + 1
+    ? (selectedMatchSets.length || 0) + 1
     : 1;
 
   const isTieBreak = currentSportType === "VOLEI" && (setsA + setsB === 4);
@@ -264,7 +278,13 @@ export default function RefereePanel({
 
   const handleCompleteMatch = () => {
     if (!selectedMatch || !isMatchFinished) return;
-    onFinishMatch(selectedMatch.id, matchWinnerId);
+    const isSetsSport = currentSportType === "PING_PONG" || currentSportType === "VOLEI" || isBestOf3;
+    const team1_id = selectedMatch.teamA.id;
+    const team2_id = selectedMatch.teamB.id;
+    const calculatedWinnerId = isSetsSport
+      ? (setsA > setsB ? team1_id : team2_id)
+      : (scoreA > scoreB ? team1_id : team2_id);
+    onFinishMatch(selectedMatch.id, calculatedWinnerId || matchWinnerId);
   };
 
   const getStatusBadge = (status: Match["status"]) => {
@@ -980,13 +1000,13 @@ export default function RefereePanel({
                         <span>Histórico de Sets da Partida</span>
                       </h3>
 
-                      {!selectedMatch.historicoSets || selectedMatch.historicoSets.length === 0 ? (
+                      {!selectedMatchSets || selectedMatchSets.length === 0 ? (
                         <p className="text-xs text-stone-500 dark:text-neutral-400 italic py-2 pl-1">
                           Nenhum set finalizado até o momento. O primeiro set está em andamento.
                         </p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                          {selectedMatch.historicoSets.map((s) => {
+                          {selectedMatchSets.map((s: any) => {
                             const isWinnerA = s.scoreA > s.scoreB;
                             return (
                               <div
@@ -1171,54 +1191,87 @@ export default function RefereePanel({
               )}
 
               {/* Winner Showcase for Completed Match */}
-              {selectedMatch.status === "COMPLETED" && (
-                <div className="glass-panel rounded-2xl p-6 border border-brand-electric/30 bg-gradient-to-r from-brand-electric/5 to-transparent flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-brand-electric/10 border border-brand-electric/30 flex items-center justify-center text-brand-electric-light">
-                      <Award className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-brand-electric-light font-bold uppercase tracking-widest">
-                        CONFRONTO CONCLUÍDO ({meta.name.toUpperCase()})
+              {selectedMatch.status === "COMPLETED" && (() => {
+                const team1Sets =
+                  selectedMatch.finalSetsA ??
+                  selectedMatch.setsVencidosTimeA ??
+                  selectedMatch.setsA ??
+                  0;
+                const team2Sets =
+                  selectedMatch.finalSetsB ??
+                  selectedMatch.setsVencidosTimeB ??
+                  selectedMatch.setsB ??
+                  0;
+                const team1Score = selectedMatch.finalScoreA ?? selectedMatch.scoreA ?? 0;
+                const team2Score = selectedMatch.finalScoreB ?? selectedMatch.scoreB ?? 0;
+                const team1Name = selectedMatch.teamA?.name || "Time 1";
+                const team2Name = selectedMatch.teamB?.name || "Time 2";
+                const isSetsSport =
+                  currentSportType === "PING_PONG" ||
+                  currentSportType === "VOLEI" ||
+                  isBestOf3 ||
+                  team1Sets > 0 ||
+                  team2Sets > 0;
+
+                // Lógica de renderização estrita: const winner = team1Sets > team2Sets ? team1Name : team2Name;
+                const winner = isSetsSport
+                  ? team1Sets > team2Sets
+                    ? team1Name
+                    : team2Name
+                  : selectedMatch.winnerId
+                  ? selectedMatch.winnerId === selectedMatch.teamA.id
+                    ? team1Name
+                    : team2Name
+                  : team1Score > team2Score
+                  ? team1Name
+                  : team2Name;
+
+                return (
+                  <div className="glass-panel rounded-2xl p-6 border border-brand-electric/30 bg-gradient-to-r from-brand-electric/5 to-transparent flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-xl bg-brand-electric/10 border border-brand-electric/30 flex items-center justify-center text-brand-electric-light">
+                        <Award className="h-6 w-6" />
                       </div>
-                      <h4 className="font-display font-black text-lg text-stone-900 dark:text-white">
-                        Vencedor:{" "}
-                        {selectedMatch.winnerId === selectedMatch.teamA.id
-                          ? selectedMatch.teamA.name
-                          : selectedMatch.teamB.name}
-                      </h4>
+                      <div>
+                        <div className="text-[10px] text-brand-electric-light font-bold uppercase tracking-widest">
+                          CONFRONTO CONCLUÍDO ({meta.name.toUpperCase()})
+                        </div>
+                        <h4 className="font-display font-black text-lg text-stone-900 dark:text-white">
+                          Vencedor: {winner}
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-stone-500 dark:text-neutral-400 block font-semibold">
+                        PLACAR FINAL
+                      </span>
+                      <span className="font-display font-black text-2xl text-stone-900 dark:text-white">
+                        {currentSportType === "FUTSAL" ? (
+                          <>
+                            {selectedMatch.scoreA} - {selectedMatch.scoreB} (Gols)
+                            {selectedMatch.penaltiesA || selectedMatch.penaltiesB ? (
+                              <span className="text-sm font-normal text-amber-500 block">
+                                Pênaltis: {selectedMatch.penaltiesA || 0} - {selectedMatch.penaltiesB || 0}
+                              </span>
+                            ) : null}
+                          </>
+                        ) : currentSportType === "PING_PONG" || currentSportType === "VOLEI" ? (
+                          `${team1Sets} - ${team2Sets} (em Sets)`
+                        ) : (
+                          (selectedMatch.setsA !== undefined && selectedMatch.setsA > 0) ||
+                          (selectedMatch.setsB !== undefined && selectedMatch.setsB > 0) ||
+                          selectedMatch.phase.toLowerCase() === "semifinal" ||
+                          selectedMatch.phase.toLowerCase() === "final" ? (
+                            `${selectedMatch.setsA || 0} - ${selectedMatch.setsB || 0} (em Sets)`
+                          ) : (
+                            `${selectedMatch.scoreA} - ${selectedMatch.scoreB}`
+                          )
+                        )}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-stone-500 dark:text-neutral-400 block font-semibold">
-                      PLACAR FINAL
-                    </span>
-                    <span className="font-display font-black text-2xl text-stone-900 dark:text-white">
-                      {currentSportType === "FUTSAL" ? (
-                        <>
-                          {selectedMatch.scoreA} - {selectedMatch.scoreB} (Gols)
-                          {selectedMatch.penaltiesA || selectedMatch.penaltiesB ? (
-                            <span className="text-sm font-normal text-amber-500 block">
-                              Pênaltis: {selectedMatch.penaltiesA || 0} - {selectedMatch.penaltiesB || 0}
-                            </span>
-                          ) : null}
-                        </>
-                      ) : currentSportType === "PING_PONG" || currentSportType === "VOLEI" ? (
-                        `${selectedMatch.finalSetsA ?? selectedMatch.setsVencidosTimeA ?? selectedMatch.setsA ?? 0} - ${selectedMatch.finalSetsB ?? selectedMatch.setsVencidosTimeB ?? selectedMatch.setsB ?? 0} (em Sets)`
-                      ) : (
-                        (selectedMatch.setsA !== undefined && selectedMatch.setsA > 0) ||
-                        (selectedMatch.setsB !== undefined && selectedMatch.setsB > 0) ||
-                        selectedMatch.phase.toLowerCase() === "semifinal" ||
-                        selectedMatch.phase.toLowerCase() === "final" ? (
-                          `${selectedMatch.setsA || 0} - ${selectedMatch.setsB || 0} (em Sets)`
-                        ) : (
-                          `${selectedMatch.scoreA} - ${selectedMatch.scoreB}`
-                        )
-                      )}
-                    </span>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </>
           )}
         </div>

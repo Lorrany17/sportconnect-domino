@@ -15,16 +15,35 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
   const coverImage = tournament.cover_url || DEFAULT_COVERS[sportType] || DEFAULT_COVERS.DOMINO;
 
   // Formatação de data
-  const formatDate = (dateString?: string) => {
+  const formatDate = (dateString?: string, timeString?: string) => {
     if (!dateString) return "Data a definir";
     try {
-      const d = new Date(dateString);
+      let d: Date;
+      if (typeof dateString === "string" && dateString.includes("-")) {
+        const datePart = dateString.split("T")[0];
+        const parts = datePart.split("-").map(Number);
+        if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          d = new Date(parts[0], parts[1] - 1, parts[2]);
+        } else {
+          d = new Date(dateString);
+        }
+      } else {
+        d = new Date(dateString);
+      }
+
       if (isNaN(d.getTime())) return "Data a definir";
-      return d.toLocaleDateString("pt-BR", {
+
+      const formatted = d.toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "short",
         year: "numeric",
       });
+
+      if (timeString && timeString.trim()) {
+        return `${formatted} às ${timeString.trim()}`;
+      }
+
+      return formatted;
     } catch {
       return "Data a definir";
     }
@@ -43,7 +62,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
   const getStatusBadge = () => {
     const status = tournament.status;
 
-    if (status === "FINALIZADO") {
+    if (status === "FINALIZADO" || status === "COMPLETED") {
       return {
         text: "FINALIZADO",
         classes: "bg-zinc-800/90 text-zinc-300 border-zinc-700/60",
@@ -51,19 +70,36 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
       };
     }
 
-    if (status === "EM_ANDAMENTO" || status === "LIVE") {
+    if (status === "IN_PROGRESS" || status === "EM_ANDAMENTO" || status === "LIVE") {
       return {
-        text: "AO VIVO",
+        text: "EM ANDAMENTO",
         classes: "bg-amber-500/90 text-white border-amber-400/40 shadow-lg shadow-amber-500/20",
         dot: "bg-white animate-pulse",
       };
     }
 
-    // Padrão: ATIVO / Inscrições Abertas
+    if (status === "CLOSED") {
+      return {
+        text: "INSCRIÇÕES ENCERRADAS",
+        classes: "bg-red-500/90 text-white border-red-400/40 shadow-lg shadow-red-500/20",
+        dot: "bg-white",
+      };
+    }
+
+    // Apenas status OPEN estrito recebe a tag verde de inscrições abertas
+    if (status === "OPEN") {
+      return {
+        text: "INSCRIÇÕES ABERTAS",
+        classes: "bg-emerald-500/90 text-white border-emerald-400/40 shadow-lg shadow-emerald-500/20",
+        dot: "bg-white animate-pulse",
+      };
+    }
+
+    // Fallback para qualquer outro status
     return {
-      text: "INSCRIÇÕES ABERTAS",
-      classes: "bg-emerald-500/90 text-white border-emerald-400/40 shadow-lg shadow-emerald-500/20",
-      dot: "bg-white animate-pulse",
+      text: "INSCRIÇÕES ENCERRADAS",
+      classes: "bg-zinc-800/90 text-zinc-400 border-zinc-700/60",
+      dot: "bg-zinc-500",
     };
   };
 
@@ -136,7 +172,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
             {/* Data */}
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-[#00a2ff] shrink-0" />
-              <span>{formatDate(tournament.start_date)}</span>
+              <span>{formatDate(tournament.start_date, tournament.start_time)}</span>
             </div>
           </div>
         </div>

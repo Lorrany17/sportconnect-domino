@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Team, Match, Round, TournamentEvent, Tournament, SportType } from "@/types";
 import { supabase } from "@/lib/supabase";
+import { completeMatchAction } from "@/app/actions/bracket";
 
 const MATCH_ID_MAP: Record<string, string> = {
   "qf-1": "00000000-0000-0000-0000-000000000001",
@@ -201,7 +202,9 @@ const mapTeamFromDb = (dbTeam: any): Team => ({
   source: "manual",
   status: dbTeam.status,
   tournamentId: dbTeam.tournament_id,
-  payment_status: dbTeam.payment_status || (dbTeam.status === "CONFIRMED" ? "APPROVED" : "PENDING"),
+  payment_status: dbTeam.payment_status || (dbTeam.status === "CONFIRMED" || dbTeam.status === "PAID" ? "PAID" : "PENDING"),
+  payout_status: dbTeam.payout_status || "PENDING",
+  payout_amount: dbTeam.payout_amount ? Number(dbTeam.payout_amount) : undefined,
   payment_proof_url: dbTeam.payment_proof_url,
   manager_name: dbTeam.manager_name || dbTeam.player1,
   category: dbTeam.category || "Amador A",
@@ -211,6 +214,54 @@ const mapTeamFromDb = (dbTeam: any): Team => ({
   user_id: dbTeam.user_id,
   custom_registration_answers: dbTeam.custom_registration_answers,
 });
+
+const extractSetsFromDbMatch = (dbMatch: any): any[] => {
+  const candidates: any[] = [
+    dbMatch.sets_history,
+    dbMatch.set_history,
+    dbMatch.history,
+    dbMatch.details?.sets,
+    dbMatch.details?.set_history,
+    dbMatch.details?.sets_history,
+    dbMatch.detailed_score?.sets,
+    dbMatch.historicoSets,
+    dbMatch.historico_sets,
+  ];
+
+  if (typeof dbMatch.details === "string") {
+    try {
+      const pd = JSON.parse(dbMatch.details);
+      if (Array.isArray(pd)) candidates.push(pd);
+      if (Array.isArray(pd?.sets)) candidates.push(pd.sets);
+      if (Array.isArray(pd?.set_history)) candidates.push(pd.set_history);
+    } catch {}
+  }
+
+  if (typeof dbMatch.detailed_score === "string") {
+    try {
+      const pds = JSON.parse(dbMatch.detailed_score);
+      if (Array.isArray(pds)) candidates.push(pds);
+      if (Array.isArray(pds?.sets)) candidates.push(pds.sets);
+    } catch {}
+  }
+
+  for (const cand of candidates) {
+    if (!cand) continue;
+    let val = cand;
+    if (typeof val === "string") {
+      try {
+        val = JSON.parse(val);
+      } catch {
+        val = null;
+      }
+    }
+    if (Array.isArray(val) && val.length > 0) {
+      return val;
+    }
+  }
+
+  return [];
+};
 
 const mapMatchFromDb = (dbMatch: any, allTeams: Team[], dbMatches: any[]): Match => {
   const friendlyId = getFriendlyIdFromUuid(dbMatch.id);
@@ -238,9 +289,15 @@ const mapMatchFromDb = (dbMatch: any, allTeams: Team[], dbMatches: any[]): Match
   const scoreB = dbMatch.score_b || 0;
   const status = dbMatch.status as Match["status"];
 
-  let winnerId: string | undefined = undefined;
-  if (status === "COMPLETED") {
-    if (scoreA > scoreB) {
+  // Prioriza o winner_id persistido no banco; caso ausente, aplica lógica estrita por sets ou score
+  let winnerId: string | undefined = dbMatch.winner_id || undefined;
+  if (status === "COMPLETED" && !winnerId) {
+    const setsA = dbMatch.sets_a || 0;
+    const setsB = dbMatch.sets_b || 0;
+    const isSetsSport = setsA > 0 || setsB > 0;
+    if (isSetsSport && setsA !== setsB) {
+      winnerId = setsA > setsB ? teamA.id : teamB.id;
+    } else if (scoreA > scoreB) {
       winnerId = teamA.id;
     } else if (scoreB > scoreA) {
       winnerId = teamB.id;
@@ -261,9 +318,32 @@ const mapMatchFromDb = (dbMatch: any, allTeams: Team[], dbMatches: any[]): Match
     scoreB,
     setsA: dbMatch.sets_a || 0,
     setsB: dbMatch.sets_b || 0,
+    setsVencidosTimeA: dbMatch.sets_a || 0,
+    setsVencidosTimeB: dbMatch.sets_b || 0,
     tableNumber,
-    detailedScore: { rounds: [] },
+    historicoSets: extractSetsFromDbMatch(dbMatch),
+    sets_history: extractSetsFromDbMatch(dbMatch),
+    set_history: extractSetsFromDbMatch(dbMatch),
+    history: extractSetsFromDbMatch(dbMatch),
+    detailedScore:
+      dbMatch.detailed_score ||
+      (dbMatch.details?.rounds ? { rounds: dbMatch.details.rounds } : { rounds: [] }),
+    penaltiesA: dbMatch.penalties_a ?? 0,
+    penaltiesB: dbMatch.penalties_b ?? 0,
+    penalties_a: dbMatch.penalties_a ?? 0,
+    penalties_b: dbMatch.penalties_b ?? 0,
+    score_a: scoreA,
+    score_b: scoreB,
+    sets_a: dbMatch.sets_a || 0,
+    sets_b: dbMatch.sets_b || 0,
+    team_a_id: dbMatch.team_a_id || dbMatch.team1_id,
+    team_b_id: dbMatch.team_b_id || dbMatch.team2_id,
     winnerId,
+    round: dbMatch.round,
+    match_order: dbMatch.match_order,
+    next_match_id: dbMatch.next_match_id,
+    team1_id: dbMatch.team1_id || dbMatch.team_a_id,
+    team2_id: dbMatch.team2_id || dbMatch.team_b_id,
     completedAt: status === "COMPLETED" ? Date.now() : undefined,
     finalScoreA: status === "COMPLETED" ? scoreA : undefined,
     finalScoreB: status === "COMPLETED" ? scoreB : undefined,
@@ -356,7 +436,15 @@ interface TournamentContextType {
   isAuthLoaded: boolean;
   login: (pin: string) => boolean;
   logout: () => void;
-  handleAddTeam: (name: string, p1: string, p2?: string, roster?: string[], format?: 'solo' | 'duplas') => void;
+  handleAddTeam: (
+    name: string,
+    p1: string,
+    p2?: string,
+    roster?: string[],
+    format?: 'solo' | 'duplas',
+    paymentStatus?: string,
+    category?: string
+  ) => void;
   handleImportTeams: (importedTeams: Team[]) => void;
   handleDeleteTeam: (id: string) => void;
   handleLoadMockTeams: (count: number) => void;
@@ -415,11 +503,14 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         entry_fee: t.entry_fee ? Number(t.entry_fee) : undefined,
         location: t.location,
         start_date: t.start_date,
+        start_time: t.start_time,
         end_date: t.end_date,
         rules: t.rules,
         format: t.format,
         cover_url: t.cover_url,
+        gender_category: t.gender_category,
         organizer_pix_key: t.organizer_pix_key,
+        sponsors: t.sponsors || [],
         custom_registration_fields: t.custom_registration_fields,
       }));
 
@@ -532,7 +623,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           mappedMatches.forEach((m) => {
             const local = localMap[m.id];
             if (local) {
-              if (local.historicoSets && local.historicoSets.length > 0) m.historicoSets = local.historicoSets;
+              const localSets = local.sets_history || local.historicoSets || local.set_history;
+              if (localSets && (!m.sets_history || (Array.isArray(m.sets_history) && m.sets_history.length === 0))) {
+                m.sets_history = localSets;
+                m.set_history = localSets;
+                m.historicoSets = Array.isArray(localSets) ? localSets : [];
+              }
               if (local.penaltiesA !== undefined) m.penaltiesA = local.penaltiesA;
               if (local.penaltiesB !== undefined) m.penaltiesB = local.penaltiesB;
               if (local.setsVencidosTimeA !== undefined) m.setsVencidosTimeA = local.setsVencidosTimeA;
@@ -658,19 +754,60 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           phase: match.phase,
           team_a_id: teamAId,
           team_b_id: teamBId,
+          team1_id: teamAId,
+          team2_id: teamBId,
           score_a: match.scoreA,
           score_b: match.scoreB,
-          sets_a: match.setsA || 0,
-          sets_b: match.setsB || 0,
+          sets_a: match.setsA || match.setsVencidosTimeA || 0,
+          sets_b: match.setsB || match.setsVencidosTimeB || 0,
           status: match.status,
+          winner_id: match.winnerId || null,
           tournament_id: currentTournamentId,
+          set_history: match.historicoSets || [],
+          sets_history: match.historicoSets || [],
+          history: match.historicoSets || [],
+          details: {
+            sets: match.historicoSets || [],
+            rounds: match.detailedScore?.rounds || [],
+          },
+          detailed_score: match.detailedScore || { rounds: [] },
+          penalties_a: match.penaltiesA || 0,
+          penalties_b: match.penaltiesB || 0,
         };
       });
 
       const { error } = await supabase.from("matches").upsert(dbMatches);
       if (error) {
-        console.error("Detalhes do erro do Supabase ao salvar partidas:", error.message, error.details, error.hint);
-        throw error;
+        if (
+          error.message?.includes("column") ||
+          error.message?.includes("winner_id") ||
+          error.message?.includes("team1_id") ||
+          error.message?.includes("set_history") ||
+          error.message?.includes("sets_history") ||
+          error.message?.includes("history") ||
+          error.message?.includes("details") ||
+          error.message?.includes("detailed_score")
+        ) {
+          const legacyMatches = dbMatches.map((m) => {
+            const {
+              team1_id,
+              team2_id,
+              winner_id,
+              set_history,
+              sets_history,
+              history,
+              details,
+              detailed_score,
+              penalties_a,
+              penalties_b,
+              ...legacy
+            } = m;
+            return legacy;
+          });
+          await supabase.from("matches").upsert(legacyMatches);
+        } else {
+          console.error("Detalhes do erro do Supabase ao salvar partidas:", error.message, error.details, error.hint);
+        }
       }
     } catch (err) {
       console.error("Erro ao salvar partidas no Supabase:", err);
@@ -721,9 +858,15 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     p1: string,
     p2: string = "",
     roster?: string[],
-    format?: 'solo' | 'duplas'
+    format?: 'solo' | 'duplas',
+    paymentStatus: string = "PAID",
+    category: string = "Amador A"
   ) => {
     if (!currentTournamentId) return;
+    const isPaid = paymentStatus === "PAID" || paymentStatus === "APPROVED";
+    const statusVal = isPaid ? "PAID" : "PENDING";
+    const paymentStatusVal = isPaid ? "PAID" : "PENDING";
+
     const newTeam: Team = {
       id: generateUUID(),
       name,
@@ -733,9 +876,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       createdAt: new Date().toISOString(),
       source: "manual",
       tournamentId: currentTournamentId || undefined,
-      payment_status: "APPROVED",
+      payment_status: paymentStatusVal,
+      status: statusVal,
       manager_name: p1,
-      category: "Amador A",
+      category: category || "Amador A",
     };
     const updated = [...teams, newTeam];
     saveTeams(updated);
@@ -746,11 +890,11 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         name: newTeam.name,
         player1: p1,
         player2: p2 || "",
-        status: "CONFIRMED",
+        status: statusVal,
         tournament_id: currentTournamentId,
-        payment_status: "APPROVED",
+        payment_status: paymentStatusVal,
         manager_name: p1,
-        category: "Amador A",
+        category: category || "Amador A",
       });
       if (error) {
         console.error("Detalhes do erro do Supabase ao adicionar dupla/equipe:", error.message, error.details, error.hint);
@@ -912,7 +1056,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   // Generate Bracket Action
   const handleGenerateBracket = (onNavigate?: () => void) => {
     if (!currentTournamentId) return;
-    const confirmedTeams = teams.filter((t) => !t.status || t.status === "CONFIRMED");
+    const confirmedTeams = teams.filter((t) => !t.status || t.status === "CONFIRMED" || t.status === "PAID");
     if (confirmedTeams.length < 2) return;
 
     const shuffledTeams = [...confirmedTeams].sort(() => Math.random() - 0.5);
@@ -1047,8 +1191,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const syncBracket = async () => {
       try {
         await supabase.from("matches").delete().eq("tournament_id", currentTournamentId);
+        await supabase.from("tournaments").update({ status: "IN_PROGRESS" }).eq("id", currentTournamentId);
+        setTournaments((prev) =>
+          prev.map((t) => (t.id === currentTournamentId ? { ...t, status: "IN_PROGRESS" } : t))
+        );
       } catch (err) {
-        console.error("Erro ao deletar partidas antigas no chaveamento:", err);
+        console.error("Erro ao sincronizar partidas e status no chaveamento:", err);
       }
       await saveMatches(generatedMatches);
     };
@@ -1112,6 +1260,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
                 setsVencidosTimeA: nextSetsA,
                 setsVencidosTimeB: nextSetsB,
                 historicoSets: newHistorico,
+                sets_history: newHistorico,
+                set_history: newHistorico,
               };
             }
             return { ...m, scoreA: teamAScore, scoreB: teamBScore };
@@ -1144,6 +1294,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
                 setsVencidosTimeA: nextSetsA,
                 setsVencidosTimeB: nextSetsB,
                 historicoSets: newHistorico,
+                sets_history: newHistorico,
+                set_history: newHistorico,
               };
             }
             return { ...m, scoreA: teamAScore, scoreB: teamBScore };
@@ -1259,6 +1411,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
               setsVencidosTimeA: nextSetsA,
               setsVencidosTimeB: nextSetsB,
               historicoSets: newHistorico,
+              sets_history: newHistorico,
+              set_history: newHistorico,
             };
           }
 
@@ -1327,6 +1481,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
               setsVencidosTimeA: nextSetsA,
               setsVencidosTimeB: nextSetsB,
               historicoSets: newHistorico,
+              sets_history: newHistorico,
+              set_history: newHistorico,
             };
           }
 
@@ -1489,13 +1645,34 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const targetMatch = matches.find((m) => m.id === matchId);
     if (!targetMatch) return;
 
-    const isTeamA = winnerId === targetMatch.teamA.id;
+    const isSetsSport =
+      currentSportType === "PING_PONG" ||
+      currentSportType === "VOLEI" ||
+      (targetMatch.phase.toLowerCase() === "semifinal" && currentSportType === "DOMINO");
+
+    const tSetsA = targetMatch.setsVencidosTimeA ?? targetMatch.setsA ?? 0;
+    const tSetsB = targetMatch.setsVencidosTimeB ?? targetMatch.setsB ?? 0;
+    const tScoreA = targetMatch.scoreA;
+    const tScoreB = targetMatch.scoreB;
+
+    // Definição estrita do winner_id:
+    // const winner_id = team1Score > team2Score ? team1_id : team2_id; (ou utilizando o total de sets)
+    let finalWinnerId: string;
+    if (isSetsSport && (tSetsA > 0 || tSetsB > 0 || tSetsA !== tSetsB)) {
+      finalWinnerId = tSetsA > tSetsB ? targetMatch.teamA.id : targetMatch.teamB.id;
+    } else if (tScoreA !== tScoreB) {
+      finalWinnerId = tScoreA > tScoreB ? targetMatch.teamA.id : targetMatch.teamB.id;
+    } else {
+      finalWinnerId = winnerId;
+    }
+
+    const isTeamA = finalWinnerId === targetMatch.teamA.id;
     const winnerTeam = isTeamA ? targetMatch.teamA : targetMatch.teamB;
     const loserTeam = isTeamA ? targetMatch.teamB : targetMatch.teamA;
     const winnerScore = isTeamA ? targetMatch.scoreA : targetMatch.scoreB;
     const loserScore = isTeamA ? targetMatch.scoreB : targetMatch.scoreA;
-    const winnerSets = isTeamA ? (targetMatch.setsVencidosTimeA ?? targetMatch.setsA ?? 0) : (targetMatch.setsVencidosTimeB ?? targetMatch.setsB ?? 0);
-    const loserSets = isTeamA ? (targetMatch.setsVencidosTimeB ?? targetMatch.setsB ?? 0) : (targetMatch.setsVencidosTimeA ?? targetMatch.setsA ?? 0);
+    const winnerSets = isTeamA ? tSetsA : tSetsB;
+    const loserSets = isTeamA ? tSetsB : tSetsA;
     const winnerPenalties = isTeamA ? (targetMatch.penaltiesA || 0) : (targetMatch.penaltiesB || 0);
     const loserPenalties = isTeamA ? (targetMatch.penaltiesB || 0) : (targetMatch.penaltiesA || 0);
 
@@ -1527,12 +1704,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         return {
           ...m,
           status: "COMPLETED" as const,
-          winnerId,
+          winnerId: finalWinnerId,
           completedAt: Date.now(),
           finalScoreA: m.scoreA,
           finalScoreB: m.scoreB,
-          finalSetsA: m.setsVencidosTimeA ?? m.setsA ?? 0,
-          finalSetsB: m.setsVencidosTimeB ?? m.setsB ?? 0,
+          finalSetsA: tSetsA,
+          finalSetsB: tSetsB,
         };
       }
       return m;
@@ -1551,6 +1728,18 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         addEvent(`Chaveamento Atualizado: "${winnerTeam.name}" avançou para ${m.phase} (Mesa/Quadra ${m.tableNumber}).`, "INFO");
       }
 
+      // Propagação direta para o chaveamento moderno (next_match_id)
+      if (targetMatch.next_match_id && m.id === targetMatch.next_match_id) {
+        const order = targetMatch.match_order || 1;
+        const isSlot1 = (order - 1) % 2 === 0;
+        if (isSlot1) {
+          updatedMatch.teamA = winnerTeam;
+        } else {
+          updatedMatch.teamB = winnerTeam;
+        }
+        addEvent(`Chaveamento Atualizado: "${winnerTeam.name}" avançou para ${m.phase} (Mesa/Quadra ${m.tableNumber}).`, "INFO");
+      }
+
       const isTeamAReady = !updatedMatch.teamA.id.startsWith("placeholder-");
       const isTeamBReady = !updatedMatch.teamB.id.startsWith("placeholder-");
       if (updatedMatch.status === "SCHEDULED" && isTeamAReady && isTeamBReady) {
@@ -1561,11 +1750,29 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     });
 
     const sportLabel = currentSportType === "FUTSAL" ? "Futsal" : currentSportType === "PING_PONG" ? "Ping Pong" : currentSportType === "VOLEI" ? "Vôlei" : "Dominó";
-    if (matchId === "f-1") {
+    if (matchId === "f-1" || targetMatch.phase.toLowerCase() === "final") {
       addEvent(`🏆 PARABÉNS! "${winnerTeam.name}" é a grande CAMPEÃ do torneio de ${sportLabel} SportConnect! 🏆`, "MATCH_COMPLETED");
     }
 
     saveMatches(updatedMatches);
+
+    // Dispara a Server Action para persistência estrita no banco e avanço em next_match_id
+    const dbMatchUuid = getUuidForMatchId(matchId);
+    completeMatchAction({
+      matchId: dbMatchUuid,
+      scoreA: tScoreA,
+      scoreB: tScoreB,
+      setsA: tSetsA,
+      setsB: tSetsB,
+      winnerId: finalWinnerId,
+      sportType: currentSportType,
+      setHistory: targetMatch.historicoSets || [],
+      detailedScore: targetMatch.detailedScore || { rounds: [] },
+      penaltiesA: targetMatch.penaltiesA || 0,
+      penaltiesB: targetMatch.penaltiesB || 0,
+    }).catch((err) => {
+      console.warn("Aviso ao rodar completeMatchAction:", err);
+    });
   };
 
   // Update a Match from Bracket Edit mode
@@ -1858,8 +2065,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const { error } = await supabase.from("tournaments").insert({
       id: newTourId,
       name,
-      status: "ATIVO",
-      sport_type: sportType
+      status: "OPEN",
+      sport_type: sportType,
+      gender_category: "MISTO",
     });
     if (error) {
       console.error("Erro ao criar torneio:", error);

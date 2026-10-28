@@ -31,6 +31,7 @@ export interface PixCheckoutFormProps {
   totalAmount: number;
   sportType?: string;
   email?: string;
+  initialReceiptUrl?: string;
   onClose?: () => void;
   onSuccess?: () => void;
 }
@@ -51,6 +52,7 @@ export default function PixCheckoutForm({
   totalAmount,
   sportType,
   email,
+  initialReceiptUrl,
   onClose,
   onSuccess,
 }: PixCheckoutFormProps) {
@@ -68,11 +70,11 @@ export default function PixCheckoutForm({
   const [isPaid, setIsPaid] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
 
-  // Estados de upload de comprovante
+  // Estados de upload de comprovante (inicializa como sucesso se já foi anexado na inscrição prévia)
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
-  const [receiptSuccess, setReceiptSuccess] = useState(false);
+  const [receiptSuccess, setReceiptSuccess] = useState(Boolean(initialReceiptUrl));
   const [receiptError, setReceiptError] = useState<string | null>(null);
-  const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState<string | null>(null);
+  const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState<string | null>(initialReceiptUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Formatar Moeda Brasileira
@@ -91,6 +93,7 @@ export default function PixCheckoutForm({
     if (onClose) {
       onClose();
     }
+    router.refresh();
     if (tournamentId) {
       router.push(`/torneio/${tournamentId}`);
     }
@@ -194,7 +197,7 @@ export default function PixCheckoutForm({
 
     // Validação de tamanho (máx 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert("Falha ao enviar imagem. Verifique o tamanho (máx 5MB).");
+      setReceiptError("Erro ao enviar o comprovante. Verifique o tamanho (máx 5MB) e tente novamente.");
       return;
     }
 
@@ -202,36 +205,61 @@ export default function PixCheckoutForm({
 
     try {
       const userId = user?.id || teamId;
-      const fileExt = file.name.split(".").pop();
+      const fileExt = file.name.split(".").pop() || "png";
       const filePath = `${userId}-${Date.now()}.${fileExt}`;
 
+      // 1. Upload do arquivo para o bucket de comprovantes
       const { error: uploadError } = await supabase.storage
         .from("receipts")
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
 
       if (uploadError) {
-        console.error("Erro no upload:", uploadError);
-        alert("Falha ao enviar imagem. Verifique o tamanho (máx 5MB).");
-        return;
+        console.error("Erro no upload do comprovante para o Storage:", uploadError);
+        throw uploadError;
       }
 
-      // Update final na tabela
-      const { error: updateError } = await supabase
+      // 2. Tratamento Estrito no Update com captura de erro e status WAITING_APPROVAL
+      const { data, error: updateError } = await supabase
         .from("teams")
-        .update({ payment_proof_url: filePath, payment_status: "WAITING_PIX" })
-        .eq("id", teamId);
+        .update({
+          payment_proof_url: filePath,
+          payment_status: "WAITING_APPROVAL",
+        })
+        .eq("id", teamId)
+        .select();
 
+      // Se houver updateError, lança exceção imediatamente (evita falso positivo)
       if (updateError) {
         console.error("Erro no update da equipe com comprovante:", updateError);
-        alert("Erro ao registrar comprovante da equipe.");
-        return;
+        throw updateError;
       }
 
+      // Validação defensiva: confirma se a linha foi de fato modificada no banco
+      if (!data || data.length === 0) {
+        throw new Error(
+          "Não foi possível registrar o comprovante da equipe. Registro não encontrado ou permissão negada."
+        );
+      }
+
+      // 3. Sucesso real comprovado
       setUploadedReceiptUrl(filePath);
       setReceiptSuccess(true);
+      setReceiptError(null);
+
+      // 4. Força atualização do estado do atleta (Next.js router refresh)
+      router.refresh();
     } catch (err: unknown) {
       console.error("Erro no envio do comprovante:", err);
-      alert("Falha ao enviar imagem. Verifique o tamanho (máx 5MB).");
+      // Garante rigorosamente que a tela de sucesso NÃO seja exibida
+      setReceiptSuccess(false);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Erro ao registrar o comprovante da equipe. Tente novamente.";
+      setReceiptError(msg || "Erro ao registrar o comprovante. Verifique sua conexão e tente novamente.");
     } finally {
       setIsUploadingReceipt(false);
     }
@@ -295,7 +323,13 @@ export default function PixCheckoutForm({
       {onClose && (
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => {
+            if (receiptSuccess) {
+              onSuccess?.();
+            }
+            onClose();
+            router.refresh();
+          }}
           className="absolute top-5 right-5 p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
           title="Fechar"
         >
@@ -542,6 +576,14 @@ export default function PixCheckoutForm({
                 if (file) handleUploadReceipt(file);
               }}
             />
+
+            {/* Mensagem de Erro de Upload do Comprovante */}
+            {receiptError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{receiptError}</span>
+              </div>
+            )}
 
             {/* Botão Largo em cor azul clara / lilás (Design UI Original) para Anexar */}
             <button

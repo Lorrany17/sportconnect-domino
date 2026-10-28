@@ -16,7 +16,7 @@ export interface CustomRegistrationField {
 export interface Tournament {
   id: string;
   name: string;
-  status: "ATIVO" | "FINALIZADO" | "CANCELADO" | "EM_ANDAMENTO" | string;
+  status: "OPEN" | "ATIVO" | "IN_PROGRESS" | "EM_ANDAMENTO" | "COMPLETED" | "FINALIZADO" | "CANCELADO" | string;
   createdAt: string;
   sport_type?: SportType; // Adicionado para identificar a modalidade
   format?: string;
@@ -25,11 +25,12 @@ export interface Tournament {
   entry_fee?: number;
   location?: string;
   start_date?: string;
+  start_time?: string;
   end_date?: string;
   rules?: string;
   cover_url?: string;
   organizer_pix_key?: string;
-  gender_category?: "Masculino" | "Feminino" | "Misto" | string;
+  gender_category?: "MASCULINO" | "FEMININO" | "MISTO" | "Masculino" | "Feminino" | "Misto" | string;
   sponsors?: Sponsor[];
   custom_registration_fields?: CustomRegistrationField[];
 }
@@ -77,14 +78,18 @@ export interface Team {
   source?: "external" | "manual" | "csv";
   status?: string;
   tournamentId?: string;
-  payment_status?: 'APPROVED' | 'WAITING_PIX' | 'PENDING' | string;
+  payment_status?: 'APPROVED' | 'PAID' | 'WAITING_PIX' | 'WAITING_APPROVAL' | 'PENDING' | string;
+  payout_status?: 'COMPLETED' | 'FAILED_TRANSFER' | 'MANUAL_PENDING' | 'PENDING' | string;
+  payout_amount?: number;
   payment_proof_url?: string;
   manager_name?: string;
+  manager_phone?: string;
+  phone?: string;
   category?: string;
   contact?: string;
   user_id?: string;
   mp_payment_id?: string;
-  cancellation_status?: 'REQUESTED_BY_ATHLETE' | 'REFUNDED' | string;
+  cancellation_status?: 'REQUESTED_BY_ATHLETE' | 'REFUND_REQUESTED' | 'REFUNDED' | string;
   custom_registration_answers?: Record<string, any>;
 }
 
@@ -104,7 +109,7 @@ export interface SetScore {
 export interface Match {
   id: string;
   phase: string; // "Quartas de Final" | "Semifinal" | "Final"
-  status: "SCHEDULED" | "LIVE" | "COMPLETED";
+  status: "SCHEDULED" | "LIVE" | "COMPLETED" | "IN_PROGRESS" | string;
   teamA: Team;
   teamB: Team;
   scoreA: number;
@@ -115,6 +120,7 @@ export interface Match {
     rounds: Round[];
   };
   winnerId?: string;
+  winner_id?: string | null;
   tableNumber: number;
   sourceMatchAId?: string;
   sourceMatchBId?: string;
@@ -130,8 +136,26 @@ export interface Match {
   penaltiesA?: number; // Futsal: pênaltis time A
   penaltiesB?: number; // Futsal: pênaltis time B
   historicoSets?: SetScore[]; // Ping Pong e Vôlei: histórico de sets
+  sets_history?: SetScore[] | string | null | any; // Coluna JSONB de histórico de sets no Supabase
+  set_history?: SetScore[] | string | null | any; // Alias compatível
+  history?: SetScore[] | string | null | any; // Alias compatível
+  details?: any;
+  detailed_score?: any;
   setsVencidosTimeA?: number;
   setsVencidosTimeB?: number;
+  round?: number;
+  match_order?: number;
+  next_match_id?: string | null;
+  team1_id?: string | null;
+  team2_id?: string | null;
+  team_a_id?: string | null;
+  team_b_id?: string | null;
+  score_a?: number;
+  score_b?: number;
+  sets_a?: number;
+  sets_b?: number;
+  penalties_a?: number | null;
+  penalties_b?: number | null;
 }
 
 export interface TournamentEvent {
@@ -176,3 +200,4 @@ export interface TournamentPermissions {
   isScorekeeper: boolean;
   isLoading: boolean;
 }
+

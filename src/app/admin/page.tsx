@@ -86,6 +86,7 @@ export default function AdminPage() {
   const [usersList, setUsersList] = useState<Profile[]>([]);
   const [totalTeamsCount, setTotalTeamsCount] = useState<number>(0);
   const [organizers, setOrganizers] = useState<Record<string, OrganizerProfile>>({});
+  const [failedPayouts, setFailedPayouts] = useState<any[]>([]);
 
   // Aba ativa
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
@@ -285,10 +286,14 @@ export default function AdminPage() {
           entry_fee: t.entry_fee ? Number(t.entry_fee) : 0,
           location: t.location,
           start_date: t.start_date,
+          start_time: t.start_time,
           end_date: t.end_date,
           cover_url: t.cover_url,
           rules: t.rules,
+          gender_category: t.gender_category,
           organizer_pix_key: t.organizer_pix_key,
+          sponsors: t.sponsors || [],
+          custom_registration_fields: t.custom_registration_fields,
         }));
 
         // C. Fetch de todos os Perfis de Utilizadores
@@ -306,10 +311,27 @@ export default function AdminPage() {
           .from("teams")
           .select("*", { count: "exact", head: true });
 
+        // E. Fetch de Repasses Pix com Falha (Split 90% para Organizadores)
+        let failedPayoutsList: any[] = [];
+        try {
+          const { data: failedTeams } = await supabase
+            .from("teams")
+            .select("id, name, tournament_id, status, payment_status, payout_status, payout_amount, mp_payment_id, created_at")
+            .eq("payout_status", "FAILED_TRANSFER")
+            .order("created_at", { ascending: false });
+
+          if (failedTeams) {
+            failedPayoutsList = failedTeams;
+          }
+        } catch {
+          // Fallback se coluna payout_status não existir no Supabase
+        }
+
         if (mounted) {
           setTournaments(tournsList);
           setUsersList(dbProfiles || []);
           setTotalTeamsCount(teamsCount || 0);
+          setFailedPayouts(failedPayoutsList);
 
           // Constrói mapa de organizadores
           const orgMap: Record<string, OrganizerProfile> = {};
@@ -532,10 +554,39 @@ export default function AdminPage() {
       if (teamsRes.count !== null && teamsRes.count !== undefined) {
         setTotalTeamsCount(teamsRes.count);
       }
+
+      try {
+        const { data: failedTeams } = await supabase
+          .from("teams")
+          .select("id, name, tournament_id, status, payment_status, payout_status, payout_amount, mp_payment_id, created_at")
+          .eq("payout_status", "FAILED_TRANSFER")
+          .order("created_at", { ascending: false });
+        if (failedTeams) {
+          setFailedPayouts(failedTeams);
+        }
+      } catch {
+        // Coluna pode não existir ainda
+      }
     } catch (err) {
       console.error("Erro ao atualizar dados do painel admin:", err);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  // Marcar Repasse Manual como Concluído
+  const handleMarkPayoutCompleted = async (teamId: string) => {
+    try {
+      const { error } = await supabase
+        .from("teams")
+        .update({ payout_status: "COMPLETED" })
+        .eq("id", teamId);
+
+      if (!error) {
+        setFailedPayouts((prev) => prev.filter((t) => t.id !== teamId));
+      }
+    } catch (err) {
+      console.error("Erro ao concluir repasse manual:", err);
     }
   };
 
@@ -640,11 +691,15 @@ export default function AdminPage() {
     const totalTournaments = tournaments.length;
     const activeTournaments = tournaments.filter(
       (t) =>
-        (t.status || "ATIVO").toUpperCase() === "ATIVO" ||
+        (t.status || "OPEN").toUpperCase() === "OPEN" ||
+        (t.status || "OPEN").toUpperCase() === "ATIVO" ||
+        (t.status || "").toUpperCase() === "IN_PROGRESS" ||
         (t.status || "").toUpperCase() === "EM_ANDAMENTO"
     ).length;
     const completedTournaments = tournaments.filter(
-      (t) => (t.status || "").toUpperCase() === "FINALIZADO"
+      (t) =>
+        (t.status || "").toUpperCase() === "FINALIZADO" ||
+        (t.status || "").toUpperCase() === "COMPLETED"
     ).length;
     const totalSpots = tournaments.reduce((acc, t) => acc + (t.max_teams || 16), 0);
 
@@ -925,6 +980,83 @@ export default function AdminPage() {
           {/* ========================================================= */}
           {activeTab === "overview" && (
             <div className="space-y-6 animate-fadeIn">
+              {/* Alerta de Repasses Manuais Pendentes (Split Pix Falhou) */}
+              {failedPayouts.length > 0 && (
+                <div className="bg-gradient-to-r from-amber-950/40 via-red-950/30 to-[#121214] border border-amber-500/40 rounded-3xl p-6 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-amber-400" />
+                      <h3 className="text-sm font-black uppercase tracking-wider text-white">
+                        Repasses Pix com Falha ({failedPayouts.length}) • Ação Manual Necessária
+                      </h3>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-black text-amber-300 uppercase">
+                      Split 90% Organizador
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-zinc-300 leading-relaxed">
+                    Os seguintes atletas pagaram a inscrição com sucesso via Pix, mas a transferência automática dos 90% para o organizador falhou (chave Pix inexistente ou recusada pelo Mercado Pago). Efetue a transferência manual e marque como concluído:
+                  </p>
+
+                  <div className="space-y-3">
+                    {failedPayouts.map((fp) => {
+                      const tourney = tournaments.find((t) => t.id === fp.tournament_id);
+                      const pixKey = tourney?.organizer_pix_key || "Não cadastrada";
+                      return (
+                        <div
+                          key={fp.id}
+                          className="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-white">{fp.name}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold">
+                                {tourney?.name || "Torneio"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-zinc-400">
+                              <span>Chave Pix Organizador:</span>
+                              <code className="px-2 py-0.5 bg-black/60 rounded text-amber-300 font-mono text-xs">
+                                {pixKey}
+                              </code>
+                              {pixKey !== "Não cadastrada" && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleCopy(pixKey, e)}
+                                  className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                  title="Copiar Chave Pix"
+                                >
+                                  {copiedText === pixKey ? (
+                                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                            {fp.payout_amount && (
+                              <p className="text-xs font-bold text-emerald-400">
+                                Valor a Repassar (90%): R$ {Number(fp.payout_amount).toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleMarkPayoutCompleted(fp.id)}
+                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Marcar como Repassado</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Box de Campeonatos Recentes */}
                 <div className="bg-[#121214] border border-[#27272a] rounded-3xl p-6 shadow-xl space-y-4">
@@ -1221,12 +1353,12 @@ export default function AdminPage() {
                               </td>
 
                               <td className="py-4 px-6">
-                                {rawStatus === "ATIVO" ? (
+                                {rawStatus === "ATIVO" || rawStatus === "OPEN" ? (
                                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                     <span>Inscrições Abertas</span>
                                   </span>
-                                ) : rawStatus === "EM_ANDAMENTO" ? (
+                                ) : rawStatus === "EM_ANDAMENTO" || rawStatus === "IN_PROGRESS" ? (
                                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-wider">
                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
                                     <span>Em Andamento</span>

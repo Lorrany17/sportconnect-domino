@@ -24,12 +24,16 @@ import {
   ExternalLink,
   Ban,
   ShieldCheck,
+  CreditCard,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthProvider";
 import { useTournament } from "@/context/TournamentContext";
 import { supabase } from "@/lib/supabase";
 import { Tournament, SportType } from "@/types";
 import CreateTournamentModal from "@/components/CreateTournamentModal";
+import PixCheckoutForm from "@/components/PixCheckoutForm";
 
 export interface MyRegistration {
   id: string; // Team ID
@@ -37,7 +41,9 @@ export interface MyRegistration {
   player1?: string;
   player2?: string;
   manager_name?: string;
-  payment_status: "APPROVED" | "WAITING_PIX" | "PENDING" | string;
+  payment_status: "APPROVED" | "PAID" | "WAITING_PIX" | "WAITING_APPROVAL" | "PENDING" | string;
+  payout_status?: "COMPLETED" | "FAILED_TRANSFER" | "PENDING" | string;
+  payment_proof_url?: string | null;
   status?: string;
   cancellation_status?: string;
   created_at?: string;
@@ -70,6 +76,11 @@ export default function HubCentral() {
   // Estados com os dados reais do usuário
   const [myTournaments, setMyTournaments] = useState<MyOrganizedTournament[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<MyRegistration[]>([]);
+
+  // Estados para retomada de pagamento e cancelamento pós-pagamento
+  const [checkoutRegistration, setCheckoutRegistration] = useState<MyRegistration | null>(null);
+  const [cancellingPaidReg, setCancellingPaidReg] = useState<MyRegistration | null>(null);
+  const [isCancellingId, setIsCancellingId] = useState<string | null>(null);
 
   // Nome do usuário formatado
   const userName =
@@ -163,7 +174,12 @@ export default function HubCentral() {
                 teamCounts[r.tournament_id] = { total: 0, approved: 0 };
               }
               teamCounts[r.tournament_id].total++;
-              if (r.payment_status === "APPROVED" || r.status === "CONFIRMED") {
+              if (
+                r.payment_status === "PAID" ||
+                r.payment_status === "APPROVED" ||
+                r.status === "CONFIRMED" ||
+                r.status === "PAID"
+              ) {
                 teamCounts[r.tournament_id].approved++;
               }
             });
@@ -232,7 +248,9 @@ export default function HubCentral() {
             player1: t.player1,
             player2: t.player2,
             manager_name: t.manager_name,
-            payment_status: t.payment_status || (t.status === "CONFIRMED" ? "APPROVED" : "PENDING"),
+            payment_status: t.payment_status || (t.status === "CONFIRMED" || t.status === "PAID" ? "PAID" : "PENDING"),
+            payout_status: t.payout_status,
+            payment_proof_url: t.payment_proof_url || null,
             status: t.status,
             cancellation_status: t.cancellation_status,
             created_at: t.created_at,
@@ -282,19 +300,28 @@ export default function HubCentral() {
   };
 
   // Ação de Cancelamento de Inscrição pelo Atleta
-  const handleRequestCancellation = async (teamId: string, paymentStatus: string) => {
-    if (paymentStatus === "APPROVED" || paymentStatus === "WAITING_PIX") {
-      alert("Sua inscrição será cancelada e o organizador será notificado para realizar o estorno.");
-    } else {
-      if (!window.confirm("Deseja realmente cancelar sua inscrição nesta competição?")) {
-        return;
-      }
+  const handleRequestCancellation = (reg: MyRegistration) => {
+    const isPaid = reg.status === "PAID" || reg.payment_status === "PAID" || reg.payment_status === "APPROVED";
+
+    if (isPaid) {
+      // Abre o Modal de Aviso de Cancelamento Pós-Pagamento
+      setCancellingPaidReg(reg);
+      return;
     }
 
+    if (!window.confirm("Deseja realmente cancelar sua inscrição nesta competição?")) {
+      return;
+    }
+
+    executeCancellation(reg.id, "REQUESTED_BY_ATHLETE");
+  };
+
+  const executeCancellation = async (teamId: string, status: "REQUESTED_BY_ATHLETE" | "REFUND_REQUESTED") => {
+    setIsCancellingId(teamId);
     try {
       const { error } = await supabase
         .from("teams")
-        .update({ cancellation_status: "REQUESTED_BY_ATHLETE" })
+        .update({ cancellation_status: status })
         .eq("id", teamId);
 
       if (error) {
@@ -306,28 +333,47 @@ export default function HubCentral() {
       setMyRegistrations((prev) =>
         prev.map((reg) =>
           reg.id === teamId
-            ? { ...reg, cancellation_status: "REQUESTED_BY_ATHLETE" }
+            ? { ...reg, cancellation_status: status }
             : reg
         )
       );
+
+      setCancellingPaidReg(null);
     } catch (err) {
       console.error("Exceção ao solicitar cancelamento:", err);
       alert("Erro ao solicitar cancelamento da inscrição.");
+    } finally {
+      setIsCancellingId(null);
     }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "A definir";
+  const formatDate = (dateString?: string, timeString?: string) => {
+    if (!dateString) return "Data a definir";
     try {
-      const d = new Date(dateString);
-      if (isNaN(d.getTime())) return "A definir";
-      return d.toLocaleDateString("pt-BR", {
+      let d: Date;
+      if (typeof dateString === "string" && dateString.includes("-")) {
+        const datePart = dateString.split("T")[0];
+        const parts = datePart.split("-").map(Number);
+        if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          d = new Date(parts[0], parts[1] - 1, parts[2]);
+        } else {
+          d = new Date(dateString);
+        }
+      } else {
+        d = new Date(dateString);
+      }
+      if (isNaN(d.getTime())) return "Data a definir";
+      const formatted = d.toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "short",
         year: "numeric",
       });
+      if (timeString && timeString.trim()) {
+        return `${formatted} às ${timeString.trim()}`;
+      }
+      return formatted;
     } catch {
-      return "A definir";
+      return "Data a definir";
     }
   };
 
@@ -459,35 +505,16 @@ export default function HubCentral() {
               </p>
             </div>
 
-            {/* Ações Rápidas do Topo */}
-            <div className="flex flex-wrap items-center gap-3">
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  className="px-4 py-2.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 hover:text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
-                >
-                  <ShieldCheck className="h-4 w-4 text-purple-400" />
-                  <span>⚙️ Central do Sistema</span>
-                </Link>
-              )}
-
+            {/* Ações do Topo */}
+            <div className="flex items-center gap-3 shrink-0 self-start md:self-auto">
               <button
                 type="button"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/60 text-xs font-bold text-zinc-300 hover:text-white transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/60 text-xs font-bold text-zinc-300 hover:text-white transition-all flex items-center gap-2 cursor-pointer shadow-sm active:scale-95"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin text-[#00a2ff]" : ""}`} />
                 <span>Atualizar</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(true)}
-                className="px-4 py-2.5 rounded-xl bg-[#00a2ff] hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25 active:scale-95 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Criar Torneio</span>
               </button>
             </div>
           </div>
@@ -606,9 +633,11 @@ export default function HubCentral() {
                     const sportInfo = SPORT_META[sportType] || SPORT_META.DOMINO;
                     const tournamentId = reg.tournament?.id || reg.tournament_id || "";
 
-                    const isApproved = reg.payment_status === "APPROVED" || reg.status === "CONFIRMED";
-                    const isWaitingPix = reg.payment_status === "WAITING_PIX";
-                    const isPending = !isApproved && !isWaitingPix;
+                    const isPaid = reg.status === "PAID" || reg.payment_status === "PAID";
+                    const isApproved = isPaid || reg.payment_status === "APPROVED" || reg.status === "CONFIRMED";
+                    const isWaitingApproval = !isApproved && (reg.payment_status === "WAITING_APPROVAL" || Boolean(reg.payment_proof_url));
+                    const isWaitingPix = !isApproved && !isWaitingApproval && reg.payment_status === "WAITING_PIX";
+                    const isPending = !isApproved && !isWaitingApproval && !isWaitingPix;
 
                     return (
                       <div
@@ -620,12 +649,17 @@ export default function HubCentral() {
                       >
                         {/* Linha decorativa superior sutil */}
                         <div
-                          className={`absolute top-0 left-0 right-0 h-1 ${isApproved
-                            ? "bg-emerald-500"
-                            : isWaitingPix
-                              ? "bg-orange-500"
-                              : "bg-yellow-500"
-                            }`}
+                          className={`absolute top-0 left-0 right-0 ${
+                            isPaid
+                              ? "h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400 shadow-[0_0_12px_rgba(16,185,129,0.7)]"
+                              : isApproved
+                                ? "h-1 bg-emerald-500"
+                                : isWaitingApproval
+                                  ? "h-1 bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                                  : isWaitingPix
+                                    ? "h-1 bg-orange-500"
+                                    : "h-1 bg-yellow-500"
+                          }`}
                         />
 
                         <div className="space-y-3.5">
@@ -637,7 +671,12 @@ export default function HubCentral() {
                             </span>
 
                             {/* Badge de Status de Pagamento e Cancelamento */}
-                            {reg.cancellation_status === "REQUESTED_BY_ATHLETE" ? (
+                            {reg.cancellation_status === "REFUND_REQUESTED" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-black uppercase tracking-wider">
+                                <AlertTriangle className="h-3 w-3" />
+                                <span>Reembolso Solicitado</span>
+                              </span>
+                            ) : reg.cancellation_status === "REQUESTED_BY_ATHLETE" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-black uppercase tracking-wider">
                                 <Clock className="h-3 w-3 animate-pulse" />
                                 <span>Cancelamento Solicitado</span>
@@ -649,19 +688,27 @@ export default function HubCentral() {
                               </span>
                             ) : (
                               <>
-                                {isApproved && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
-                                    <CheckCircle2 className="h-3 w-3" />
-                                    <span>Aprovado</span>
+                                {isPaid ? (
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[11px] font-black uppercase tracking-wider shadow-[0_0_15px_rgba(16,185,129,0.4)] animate-pulse">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                    <span>Inscrição Confirmada! ✅</span>
                                   </span>
-                                )}
-                                {isWaitingPix && (
+                                ) : isApproved ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                                    <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                    <span>Inscrição Confirmada! ✅</span>
+                                  </span>
+                                ) : isWaitingApproval ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-wider">
+                                    <Clock className="h-3 w-3 animate-pulse" />
+                                    <span>Em Análise</span>
+                                  </span>
+                                ) : isWaitingPix ? (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/25 text-orange-400 text-[10px] font-black uppercase tracking-wider">
                                     <Clock className="h-3 w-3 animate-pulse" />
                                     <span>Aguardando Pix</span>
                                   </span>
-                                )}
-                                {isPending && (
+                                ) : (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/25 text-yellow-400 text-[10px] font-black uppercase tracking-wider">
                                     <AlertCircle className="h-3 w-3" />
                                     <span>Pendente</span>
@@ -684,6 +731,22 @@ export default function HubCentral() {
                             )}
                           </div>
 
+                          {/* Feedback de Confirmação para Inscrição Paga */}
+                          {isPaid && (
+                            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-[11px] font-medium flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                              <span>Vaga confirmada! Você está oficialmente no torneio.</span>
+                            </div>
+                          )}
+
+                          {/* Feedback de Comprovante em Análise */}
+                          {isWaitingApproval && (
+                            <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[11px] font-medium flex items-center gap-2">
+                              <Clock className="h-3.5 w-3.5 text-blue-400 shrink-0 animate-pulse" />
+                              <span>Comprovante em análise • O organizador foi notificado.</span>
+                            </div>
+                          )}
+
                           {/* Dados da Equipe / Dupla Registrada */}
                           <div className="p-3 rounded-xl bg-[#121214] border border-zinc-800/80 space-y-1">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">
@@ -699,28 +762,50 @@ export default function HubCentral() {
                             )}
                           </div>
 
-                          {/* Alerta de Cancelamento Solicitado ou Botão de Cancelar Inscrição */}
-                          {reg.cancellation_status === "REQUESTED_BY_ATHLETE" ? (
+                          {/* Alerta de Cancelamento Solicitado ou Botões de Ação */}
+                          {reg.cancellation_status === "REFUND_REQUESTED" ? (
+                            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] font-medium flex items-center gap-2">
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                              <span>Cancelamento pós-pagamento solicitado • O reembolso deve ser negociado diretamente com a organização.</span>
+                            </div>
+                          ) : reg.cancellation_status === "REQUESTED_BY_ATHLETE" ? (
                             <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] font-medium flex items-center gap-2">
                               <Clock className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                              <span>Cancelamento solicitado • O organizador foi notificado para estornar o Pix.</span>
+                              <span>Cancelamento solicitado • O organizador foi notificado.</span>
                             </div>
-                          ) : !reg.cancellation_status && (isApproved || isWaitingPix) ? (
-                            <div className="pt-1">
+                          ) : (
+                            <div className="pt-1 space-y-2">
+                              {/* Botão de Ação Primária: Finalizar Pagamento (se PENDING ou WAITING_PIX e sem comprovante em análise) */}
+                              {(isWaitingPix || isPending) && !isWaitingApproval && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCheckoutRegistration(reg);
+                                  }}
+                                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-500 hover:from-orange-400 hover:to-amber-300 text-neutral-950 text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                                  title="Finalizar pagamento e anexar comprovante"
+                                >
+                                  <CreditCard className="h-3.5 w-3.5" />
+                                  <span>Finalizar Pagamento</span>
+                                </button>
+                              )}
+
+                              {/* Botão Cancelar Minha Inscrição */}
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleRequestCancellation(reg.id, reg.payment_status);
+                                  handleRequestCancellation(reg);
                                 }}
                                 className="w-full py-2 px-3 rounded-xl border border-red-500/30 hover:border-red-500/60 bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-                                title="Solicitar cancelamento da inscrição e estorno ao organizador"
+                                title="Solicitar cancelamento da inscrição"
                               >
                                 <Ban className="h-3.5 w-3.5 text-red-400" />
                                 <span>Cancelar Minha Inscrição</span>
                               </button>
                             </div>
-                          ) : null}
+                          )}
                         </div>
 
                         {/* Rodapé do Mini Card */}
@@ -866,7 +951,7 @@ export default function HubCentral() {
                             <div className="flex items-center gap-3 text-[11px] text-zinc-400 mt-1">
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3 text-zinc-500 shrink-0" />
-                                <span>{formatDate(tourn.start_date)}</span>
+                                <span>{formatDate(tourn.start_date, tourn.start_time)}</span>
                               </span>
                               {tourn.location && (
                                 <span className="flex items-center gap-1 truncate max-w-[130px]">
@@ -939,6 +1024,98 @@ export default function HubCentral() {
           fetchUserData();
         }}
       />
+
+      {/* MODAL: FINALIZAR PAGAMENTO (RETOMAR CHECKOUT PIX) */}
+      {checkoutRegistration && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto animate-fadeIn">
+          <PixCheckoutForm
+            tournamentId={checkoutRegistration.tournament?.id || checkoutRegistration.tournament_id || ""}
+            tournamentName={checkoutRegistration.tournament?.name || "Torneio Oficial"}
+            teamId={checkoutRegistration.id}
+            teamName={checkoutRegistration.name}
+            captainName={checkoutRegistration.manager_name || checkoutRegistration.player1 || userName}
+            totalAmount={checkoutRegistration.tournament?.entry_fee ? Number(checkoutRegistration.tournament.entry_fee) : 0}
+            sportType={checkoutRegistration.tournament?.sport_type}
+            email={user?.email || undefined}
+            onClose={() => setCheckoutRegistration(null)}
+            onSuccess={() => {
+              setCheckoutRegistration(null);
+              fetchUserData();
+              router.refresh();
+            }}
+          />
+        </div>
+      )}
+
+      {/* MODAL DE AVISO: CANCELAMENTO PÓS-PAGAMENTO */}
+      {cancellingPaidReg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fadeIn">
+          <div className="bg-[#141416] border border-red-500/40 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative space-y-5 animate-scaleUp">
+            {/* Linha superior vermelha de aviso */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-600 via-amber-500 to-red-500 rounded-t-3xl" />
+
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-400 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black font-display text-white">
+                    Aviso de Cancelamento
+                  </h3>
+                  <p className="text-xs text-zinc-400 truncate max-w-[240px]">
+                    {cancellingPaidReg.tournament?.name || "Campeonato Oficial"} • {cancellingPaidReg.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCancellingPaidReg(null)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-red-950/30 border border-red-900/40 text-xs text-zinc-200 leading-relaxed space-y-2.5">
+              <p className="font-semibold text-red-300">
+                O seu pagamento já foi processado e transferido para o organizador.
+              </p>
+              <p className="text-zinc-300">
+                Ao cancelar, a sua vaga será perdida. O reembolso deve ser negociado diretamente com a organização do evento.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setCancellingPaidReg(null)}
+                className="py-2.5 px-4 rounded-xl border border-zinc-700 hover:border-zinc-500 bg-zinc-800/80 text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer"
+              >
+                Voltar / Manter Vaga
+              </button>
+              <button
+                type="button"
+                disabled={isCancellingId === cancellingPaidReg.id}
+                onClick={() => executeCancellation(cancellingPaidReg.id, "REFUND_REQUESTED")}
+                className="py-2.5 px-5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-red-600/30 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                {isCancellingId === cancellingPaidReg.id ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Cancelando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Ban className="h-3.5 w-3.5" />
+                    <span>Confirmar Cancelamento</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

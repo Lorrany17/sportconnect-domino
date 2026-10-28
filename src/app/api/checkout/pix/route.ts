@@ -58,6 +58,10 @@ export async function POST(request: Request) {
         payer: {
           email: payerEmail,
         },
+        metadata: {
+          team_id: teamId,
+          tournament_id: tournamentId,
+        },
       },
     });
 

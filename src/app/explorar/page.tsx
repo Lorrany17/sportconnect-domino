@@ -30,22 +30,25 @@ export default function ExplorarPage() {
     { id: "VOLEI", label: "Vôlei" },
   ];
 
-  // Fetch de torneios públicos ordenados por data de início mais recente
+  // Fetch de torneios públicos com dados frescos e revalidação contínua
   useEffect(() => {
+    let isMounted = true;
+
     async function fetchTournaments() {
       try {
-        setLoading(true);
         const { data, error } = await supabase
           .from("tournaments")
           .select("*")
           .order("start_date", { ascending: false, nullsFirst: false });
+
+        if (!isMounted) return;
 
         if (error) {
           console.warn("Aviso ao buscar torneios no Supabase:", error);
           if (contextTournaments && contextTournaments.length > 0) {
             setTournaments(contextTournaments);
           }
-        } else if (data && data.length > 0) {
+        } else if (data) {
           const mapped: Tournament[] = data.map((t: any) => ({
             id: t.id,
             name: t.name,
@@ -58,25 +61,56 @@ export default function ExplorarPage() {
             entry_fee: t.entry_fee ? Number(t.entry_fee) : undefined,
             location: t.location,
             start_date: t.start_date,
+            start_time: t.start_time,
             end_date: t.end_date,
             rules: t.rules,
             cover_url: t.cover_url,
           }));
           setTournaments(mapped);
-        } else if (contextTournaments && contextTournaments.length > 0) {
-          setTournaments(contextTournaments);
         }
       } catch (err) {
         console.error("Exceção ao buscar torneios:", err);
-        if (contextTournaments && contextTournaments.length > 0) {
+        if (isMounted && contextTournaments && contextTournaments.length > 0) {
           setTournaments(contextTournaments);
         }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
     fetchTournaments();
+
+    // Revalidação imediata ao focar na aba
+    const handleFocus = () => {
+      fetchTournaments();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchTournaments();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Inscrição em tempo real na tabela de torneios
+    const channel = supabase
+      .channel("public-tournaments-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tournaments" },
+        () => {
+          fetchTournaments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      supabase.removeChannel(channel);
+    };
   }, [contextTournaments]);
 
   // Filtragem dos torneios

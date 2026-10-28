@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   X,
   Users,
@@ -16,6 +16,7 @@ import {
   ChevronDown,
   FileText,
   Mail,
+  Upload,
 } from "lucide-react";
 import { Tournament, SportType, Team } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -81,6 +82,54 @@ export default function PublicRegistrationForm({
     }));
   };
 
+  // Estados de upload de comprovante de pagamento
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Limpa o preview de imagem do comprovante ao desmontar
+  useEffect(() => {
+    return () => {
+      if (receiptPreview) {
+        URL.revokeObjectURL(receiptPreview);
+      }
+    };
+  }, [receiptPreview]);
+
+  // Manipulador de seleção do arquivo de comprovante
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage("Erro ao enviar o comprovante. O arquivo deve ter no máximo 5MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setReceiptFile(file);
+    setErrorMessage("");
+
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setReceiptPreview(url);
+    } else {
+      setReceiptPreview(null);
+    }
+  };
+
+  // Remove o comprovante selecionado
+  const handleRemoveReceipt = () => {
+    setReceiptFile(null);
+    if (receiptPreview) {
+      URL.revokeObjectURL(receiptPreview);
+      setReceiptPreview(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   // Estados de submissão e feedback
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -106,6 +155,7 @@ export default function PublicRegistrationForm({
           totalAmount={entryFee}
           sportType={sportType}
           email={user?.email || undefined}
+          initialReceiptUrl={createdTeam.payment_proof_url || undefined}
           onClose={onClose}
           onSuccess={() => {
             onSuccess?.();
@@ -187,7 +237,14 @@ export default function PublicRegistrationForm({
       }
     }
 
-    // 1.2 Validação Obrigatória de Autenticação para Inscrição
+    // 1.2 Validação de Status do Torneio
+    if (tournament.status && tournament.status !== "OPEN") {
+      setErrorMessage("As inscrições para este torneio estão encerradas.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 1.3 Validação Obrigatória de Autenticação para Inscrição
     if (!user || !user.id) {
       const authErrorMsg = "Usuário não autenticado. Faça login para se inscrever.";
       setErrorMessage(authErrorMsg);
@@ -222,7 +279,45 @@ export default function PublicRegistrationForm({
         compiledRoster = [p1, ...validAthletes];
       }
 
-      // 3. Montagem do payload e Insert na tabela teams (user_id obrigatório)
+      // 3. Upload Obrigatório do Comprovante (se anexado pelo atleta) ANTES do INSERT na tabela teams
+      let uploadedReceiptPath: string | null = null;
+
+      if (receiptFile) {
+        if (receiptFile.size > 5 * 1024 * 1024) {
+          setErrorMessage("Erro ao enviar o comprovante. O arquivo deve ter no máximo 5MB.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        try {
+          const fileExt = receiptFile.name.split(".").pop() || "png";
+          const cleanFileName = `${user.id}-${Date.now()}.${fileExt}`;
+          const filePath = `${cleanFileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("receipts")
+            .upload(filePath, receiptFile, {
+              cacheControl: "3600",
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error("Erro ao enviar comprovante no Supabase Storage:", uploadError);
+            setErrorMessage("Erro ao enviar o comprovante. Verifique sua conexão e tente novamente.");
+            setIsSubmitting(false);
+            return;
+          }
+
+          uploadedReceiptPath = filePath;
+        } catch (uploadCatchErr) {
+          console.error("Exceção ao fazer upload do comprovante:", uploadCatchErr);
+          setErrorMessage("Erro ao enviar o comprovante. Verifique sua conexão e tente novamente.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // 4. Montagem do payload e Insert na tabela teams (user_id obrigatório)
       const formattedCustomAnswers: Record<string, any> = {};
       for (const field of customFields) {
         const val = customAnswers[field.label];
@@ -242,8 +337,8 @@ export default function PublicRegistrationForm({
         contact: contact.trim(),
         tournament_id: tournament.id,
         user_id: user.id,
-        payment_status: entryFee > 0 ? "WAITING_PIX" : "APPROVED",
-        payment_proof_url: null,
+        payment_status: uploadedReceiptPath ? "WAITING_APPROVAL" : (entryFee > 0 ? "WAITING_PIX" : "APPROVED"),
+        payment_proof_url: uploadedReceiptPath || null,
         status: entryFee > 0 ? "PENDING" : "CONFIRMED",
         category: "Geral",
         custom_registration_answers: formattedCustomAnswers,
@@ -819,7 +914,7 @@ export default function PublicRegistrationForm({
                 </h3>
 
                 {entryFee > 0 ? (
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-[#18181b] via-[#121214] to-zinc-900 border border-orange-500/25 space-y-2 shadow-lg">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-[#18181b] via-[#121214] to-zinc-900 border border-orange-500/25 space-y-3 shadow-lg">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 rounded-md bg-orange-500/15 border border-orange-500/30 text-orange-400 text-[10px] font-black uppercase tracking-wider">
@@ -832,7 +927,7 @@ export default function PublicRegistrationForm({
                       </div>
                     </div>
                     <p className="text-[11px] text-zinc-400 leading-relaxed">
-                      Ao prosseguir, você visualizará o <strong>QR Code Pix Oficial</strong> e a chave <strong>Pix Copia e Cola</strong> com confirmação automática integrada.
+                      Ao prosseguir, você visualizará o <strong>QR Code Pix Oficial</strong> e a chave <strong>Pix Copia e Cola</strong> com confirmação integrada.
                     </p>
                   </div>
                 ) : (
@@ -842,6 +937,90 @@ export default function PublicRegistrationForm({
                   </div>
                 )}
               </div>
+
+              {/* 3. Seção de Comprovante de Pagamento (Anexo Opcional/Recomendado para Torneios Pagos) */}
+              {entryFee > 0 && (
+                <div className="pt-2 space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#27272a] pb-2">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                      <Upload className="h-4 w-4 text-orange-400" />
+                      <span>Comprovante de Pagamento</span>
+                    </h3>
+                    <span className="text-[10px] text-zinc-400">
+                      PNG, JPG ou PDF (máx. 5MB)
+                    </span>
+                  </div>
+
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="registration-receipt-upload"
+                  />
+
+                  {!receiptFile ? (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-[#27272a] hover:border-orange-500/50 rounded-2xl cursor-pointer bg-zinc-900/30 hover:bg-zinc-900/60 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+                        <Upload className="h-5 w-5" />
+                      </div>
+                      <p className="text-xs font-bold text-zinc-200 text-center">
+                        Anexar Comprovante de Pagamento Pix
+                      </p>
+                      <p className="text-[10px] text-zinc-500 text-center mt-1">
+                        Se você já efetuou o pagamento, anexe o comprovante aqui antes de concluir.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {receiptPreview ? (
+                          <img
+                            src={receiptPreview}
+                            alt="Pré-visualização do comprovante"
+                            className="w-10 h-10 rounded-lg object-cover border border-zinc-700 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-zinc-200 truncate">
+                            {receiptFile.name}
+                          </p>
+                          <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Comprovante pronto para envio ({(receiptFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Trocar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveReceipt}
+                          className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                          title="Remover comprovante"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Botão de Envio / Prosseguir para Checkout Pix */}
               <div className="pt-3">
@@ -853,8 +1032,10 @@ export default function PublicRegistrationForm({
                   {isSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Registrando Equipe...</span>
+                      <span>{receiptFile ? "Enviando Comprovante e Registrando..." : "Registrando Equipe..."}</span>
                     </>
+                  ) : receiptFile ? (
+                    <span>Confirmar Inscrição com Comprovante 🚀</span>
                   ) : entryFee > 0 ? (
                     <span>Prosseguir para Pagamento Pix (R$ {entryFee.toFixed(2).replace(".", ",")}) 🚀</span>
                   ) : (

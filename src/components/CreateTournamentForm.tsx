@@ -6,6 +6,7 @@ import {
   Trophy,
   MapPin,
   Calendar,
+  Clock,
   Users,
   ChevronDown,
   Loader2,
@@ -74,8 +75,11 @@ export default function CreateTournamentForm({
   const [name, setName] = useState(initialData?.name || "");
   const [sportType, setSportType] = useState<SportType>((initialData?.sport_type as SportType) || "DOMINO");
   const [format, setFormat] = useState<string>(initialData?.format || "Duplas");
-  const [genderCategory, setGenderCategory] = useState<string>(initialData?.gender_category || "Misto");
+  const [genderCategory, setGenderCategory] = useState<string>(
+    initialData?.gender_category ? initialData.gender_category.toUpperCase() : "MISTO"
+  );
   const [startDate, setStartDate] = useState(initialData?.start_date ? initialData.start_date.split("T")[0] : "");
+  const [startTime, setStartTime] = useState(initialData?.start_time || "");
   const [address, setAddress] = useState(initialData?.location || "");
   const [debouncedAddress, setDebouncedAddress] = useState(initialData?.location || "");
   const [maxTeams, setMaxTeams] = useState<number>(initialData?.max_teams ? Number(initialData.max_teams) : 16);
@@ -83,22 +87,7 @@ export default function CreateTournamentForm({
   const [organizerPixKey, setOrganizerPixKey] = useState(initialData?.organizer_pix_key || "");
   const [rules, setRules] = useState(initialData?.rules || "");
 
-  // Estado para Campos Personalizados de Inscrição (Estilo Google Forms)
-  const [customFields, setCustomFields] = useState<CustomRegistrationField[]>(() => {
-    if (initialData?.custom_registration_fields && Array.isArray(initialData.custom_registration_fields)) {
-      return initialData.custom_registration_fields.map((f) => ({
-        id: f.id || `field_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        label: f.label || "",
-        type: f.type || "text",
-        required: Boolean(f.required),
-        options: Array.isArray(f.options) ? f.options : [],
-        optionsString: Array.isArray(f.options) ? f.options.join(", ") : (typeof f.options === "string" ? f.options : ""),
-      }));
-    }
-    return [];
-  });
-
-  // Estado para Patrocinadores do Evento
+  // Interface para Patrocinador no Formulário
   interface FormSponsor {
     id: string;
     name: string;
@@ -108,9 +97,46 @@ export default function CreateTournamentForm({
     previewUrl?: string | null;
   }
 
-  const [sponsors, setSponsors] = useState<FormSponsor[]>(() => {
-    if (initialData?.sponsors && Array.isArray(initialData.sponsors)) {
-      return initialData.sponsors.map((s) => ({
+  // Helpers de parsing robusto (suporta array ou JSON em formato de string da base de dados)
+  const parseCustomFields = (raw: any): CustomRegistrationField[] => {
+    if (!raw) return [];
+    let fields = raw;
+    if (typeof raw === "string") {
+      try {
+        fields = JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    }
+    if (Array.isArray(fields)) {
+      return fields.map((f: any) => ({
+        id: f.id || `field_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        label: f.label || "",
+        type: f.type || "text",
+        required: Boolean(f.required),
+        options: Array.isArray(f.options) ? f.options : [],
+        optionsString: Array.isArray(f.options)
+          ? f.options.join(", ")
+          : typeof f.options === "string"
+          ? f.options
+          : "",
+      }));
+    }
+    return [];
+  };
+
+  const parseSponsors = (raw: any): FormSponsor[] => {
+    if (!raw) return [];
+    let sps = raw;
+    if (typeof raw === "string") {
+      try {
+        sps = JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    }
+    if (Array.isArray(sps)) {
+      return sps.map((s: any) => ({
         id: s.id || `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         name: s.name || "",
         logo_url: s.logo_url || null,
@@ -119,7 +145,17 @@ export default function CreateTournamentForm({
       }));
     }
     return [];
-  });
+  };
+
+  // Estado para Campos Personalizados de Inscrição (Estilo Google Forms)
+  const [customFields, setCustomFields] = useState<CustomRegistrationField[]>(() =>
+    parseCustomFields(initialData?.custom_registration_fields)
+  );
+
+  // Estado para Patrocinadores do Evento
+  const [sponsors, setSponsors] = useState<FormSponsor[]>(() =>
+    parseSponsors(initialData?.sponsors)
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -223,10 +259,13 @@ export default function CreateTournamentForm({
         setFormat(initialData.format);
       }
       if (initialData.gender_category) {
-        setGenderCategory(initialData.gender_category);
+        setGenderCategory(initialData.gender_category.toUpperCase());
       }
       if (initialData.start_date) {
         setStartDate(initialData.start_date.split("T")[0]);
+      }
+      if (initialData.start_time !== undefined) {
+        setStartTime(initialData.start_time || "");
       }
       if (initialData.location) {
         setAddress(initialData.location);
@@ -247,32 +286,53 @@ export default function CreateTournamentForm({
       if (initialData.cover_url) {
         setCoverPreviewUrl(initialData.cover_url);
       }
-      if (initialData.custom_registration_fields && Array.isArray(initialData.custom_registration_fields)) {
-        setCustomFields(
-          initialData.custom_registration_fields.map((f) => ({
-            id: f.id || `field_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            label: f.label || "",
-            type: f.type || "text",
-            required: Boolean(f.required),
-            options: Array.isArray(f.options) ? f.options : [],
-            optionsString: Array.isArray(f.options) ? f.options.join(", ") : (typeof f.options === "string" ? f.options : ""),
-          }))
-        );
-      } else {
-        setCustomFields([]);
+
+      if (initialData.custom_registration_fields !== undefined) {
+        setCustomFields(parseCustomFields(initialData.custom_registration_fields));
       }
-      if (initialData.sponsors && Array.isArray(initialData.sponsors)) {
-        setSponsors(
-          initialData.sponsors.map((s) => ({
-            id: s.id || `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            name: s.name || "",
-            logo_url: s.logo_url || null,
-            link: s.link || null,
-            previewUrl: s.logo_url || null,
-          }))
-        );
-      } else {
-        setSponsors([]);
+      if (initialData.sponsors !== undefined) {
+        setSponsors(parseSponsors(initialData.sponsors));
+      }
+
+      // Se estiver em modo edição (initialData.id existe) e os campos/patrocinadores não vieram ou estão ausentes,
+      // busca diretamente da tabela tournaments no Supabase para garantir persistência total!
+      if (
+        initialData.id &&
+        (initialData.custom_registration_fields === undefined ||
+          initialData.sponsors === undefined ||
+          initialData.start_time === undefined)
+      ) {
+        supabase
+          .from("tournaments")
+          .select("custom_registration_fields, sponsors, start_time, gender_category")
+          .eq("id", initialData.id)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (!error && data) {
+              if (
+                data.custom_registration_fields &&
+                (initialData.custom_registration_fields === undefined ||
+                  !Array.isArray(initialData.custom_registration_fields) ||
+                  initialData.custom_registration_fields.length === 0)
+              ) {
+                setCustomFields(parseCustomFields(data.custom_registration_fields));
+              }
+              if (
+                data.sponsors &&
+                (initialData.sponsors === undefined ||
+                  !Array.isArray(initialData.sponsors) ||
+                  initialData.sponsors.length === 0)
+              ) {
+                setSponsors(parseSponsors(data.sponsors));
+              }
+              if (data.start_time && !initialData.start_time) {
+                setStartTime(data.start_time);
+              }
+              if (data.gender_category && !initialData.gender_category) {
+                setGenderCategory(data.gender_category.toUpperCase());
+              }
+            }
+          });
       }
     }
   }, [initialData]);
@@ -494,9 +554,10 @@ export default function CreateTournamentForm({
       const payload: any = {
         name: trimmedName,
         sport_type: sportType,
-        gender_category: genderCategory,
+        gender_category: (genderCategory || "MISTO").toUpperCase(),
         format: format || (sportType === "DOMINO" ? "Duplas" : sportType === "FUTSAL" ? "5x5" : null),
         start_date: formattedStartDate,
+        start_time: startTime.trim() || null,
         location: address.trim() || null,
         max_teams: maxTeams,
         entry_fee: parsedEntryFee,
@@ -628,7 +689,7 @@ export default function CreateTournamentForm({
         }
 
         payload.cover_url = finalCoverUrl;
-        payload.status = "ATIVO";
+        payload.status = "OPEN";
         payload.owner_id = ownerId;
 
         const { data, error } = await supabase
@@ -639,7 +700,6 @@ export default function CreateTournamentForm({
 
         if (error) {
           console.error("Erro Supabase ao criar torneio:", error);
-          alert(`Erro ao criar campeonato: ${error.message}`);
           throw error;
         }
 
@@ -659,12 +719,13 @@ export default function CreateTournamentForm({
             createdAt: data.created_at,
             sport_type: data.sport_type,
             format: data.format,
-            gender_category: data.gender_category || genderCategory,
+            gender_category: (data.gender_category || genderCategory || "MISTO").toUpperCase(),
             owner_id: data.owner_id,
             max_teams: data.max_teams ? Number(data.max_teams) : maxTeams,
             entry_fee: data.entry_fee ? Number(data.entry_fee) : parsedEntryFee,
             location: data.location,
             start_date: data.start_date,
+            start_time: data.start_time || payload.start_time,
             rules: data.rules,
             cover_url: data.cover_url || finalCoverUrl,
             organizer_pix_key: data.organizer_pix_key || organizerPixKey.trim() || undefined,
@@ -684,10 +745,17 @@ export default function CreateTournamentForm({
       }
     } catch (err: unknown) {
       console.error("Erro ao salvar campeonato:", err);
-      const msg =
-        err instanceof Error ? err.message : "Ocorreu um erro ao salvar o campeonato no banco de dados.";
+
+      let msg = "Ocorreu um erro ao salvar o campeonato no banco de dados.";
+
+      if (err instanceof Error) {
+        msg = err.message;
+      } else if (typeof err === "object" && err !== null && "message" in err) {
+        // Captura a propriedade message de objetos de erro do Supabase
+        msg = String((err as { message: string }).message);
+      }
+
       setErrorMessage(msg);
-      alert(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -903,12 +971,12 @@ export default function CreateTournamentForm({
             <div className="relative">
               <select
                 value={genderCategory}
-                onChange={(e) => setGenderCategory(e.target.value)}
+                onChange={(e) => setGenderCategory(e.target.value.toUpperCase())}
                 className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#333] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-zinc-100 outline-none transition-all appearance-none cursor-pointer pr-10"
               >
-                <option value="Masculino" className="bg-[#1a1a1a] text-white">Masculino</option>
-                <option value="Feminino" className="bg-[#1a1a1a] text-white">Feminino</option>
-                <option value="Misto" className="bg-[#1a1a1a] text-white">Misto</option>
+                <option value="MASCULINO" className="bg-[#1a1a1a] text-white">Masculino</option>
+                <option value="FEMININO" className="bg-[#1a1a1a] text-white">Feminino</option>
+                <option value="MISTO" className="bg-[#1a1a1a] text-white">Misto</option>
               </select>
               <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-zinc-400">
                 <ChevronDown className="h-4 w-4" />
@@ -917,8 +985,8 @@ export default function CreateTournamentForm({
           </div>
         </div>
 
-        {/* 2.1 Formato da Competição (se aplicável) e Data de Início */}
-        <div className={`grid grid-cols-1 ${isFormatVisible ? "md:grid-cols-2" : "md:grid-cols-1"} gap-4`}>
+        {/* 2.1 Formato da Competição (se aplicável), Data de Início e Horário */}
+        <div className={`grid grid-cols-1 ${isFormatVisible ? "md:grid-cols-3" : "md:grid-cols-2"} gap-4`}>
           {isFormatVisible && (
             <div className="space-y-1.5 animate-fadeIn">
               <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
@@ -962,6 +1030,24 @@ export default function CreateTournamentForm({
                 className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#333] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-zinc-100 outline-none transition-all [color-scheme:dark]"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-black uppercase tracking-wider text-zinc-300 block">
+              Horário (Opcional)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                <Clock className="h-4 w-4 text-blue-500" />
+              </div>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-[#0f0f0f] border border-[#333] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-zinc-100 outline-none transition-all [color-scheme:dark]"
+              />
+            </div>
+            <p className="text-[11px] text-zinc-500">Deixe em branco se ainda for a definir</p>
           </div>
         </div>
 
